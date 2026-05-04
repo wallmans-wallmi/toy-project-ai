@@ -1,8 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export async function createSupabaseServerClient() {
-  const cookieStore = cookies();
+/** Supabase SSR server client for the App Router (Next.js 15+ async `cookies()`). */
+export async function createClient() {
+  const cookieStore = await cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
@@ -22,7 +23,7 @@ export async function createSupabaseServerClient() {
             cookieStore.set(name, value, options),
           );
         } catch {
-          /* ignore when called from Server Component */
+          /* `setAll` from a Server Component — safe to ignore; refresh via middleware if needed */
         }
       },
     },
