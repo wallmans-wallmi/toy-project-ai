@@ -16,12 +16,12 @@ function adminPasswordFromEnv(): string {
   return normalizePasswordString(raw);
 }
 
-/** הודעת שגיאה אחידה כש־ADMIN_PASSWORD חסר בשרת */
+/** הודעת שגיאה (קול אושיה) כש־ADMIN_PASSWORD חסר בשרת */
 export function adminPasswordMissingMessage(): string {
   return (
-    "משתנה הסביבה ADMIN_PASSWORD חסר או ריק בשרת. " +
-    "הוסיפו בקובץ .env.local שורה ADMIN_PASSWORD=הסיסמה שלכם, שמרו את הקובץ, " +
-    "והפעילו מחדש את שרת הפיתוח (npm run dev). בפריסה (למשל Vercel) הגדירו את המשתנה בהגדרות הפרויקט."
+    "אופס — אצלנו בשרת עדיין לא מוגדרת סיסמת הניהול (משתנה ADMIN_PASSWORD). " +
+    "תוסיפו ב-.env.local שורה ADMIN_PASSWORD=מה שבחרתם, תשמרו, ותעשו restart ל־npm run dev. " +
+    "בפריסה (למשל Vercel) זה דרך משתני הסביבה בפרויקט. כשזה מסתדר — ניפגש שוב בחיוך."
   );
 }
 

@@ -1,3 +1,4 @@
+import { loadServerEnvOnce } from "@/lib/load-server-env";
 import { NextResponse } from "next/server";
 import {
   ADMIN_SESSION_COOKIE,
@@ -9,9 +10,20 @@ import {
 
 export const runtime = "nodejs";
 
+/** טעינת env לפני כל לוגיקה — גם בקור ראשון ל־lambda */
+loadServerEnvOnce();
+
 export async function POST(req: Request) {
+  loadServerEnvOnce();
   if (!isAdminPasswordConfigured()) {
-    return NextResponse.json({ error: adminPasswordMissingMessage() }, { status: 503 });
+    loadServerEnvOnce();
+    if (!isAdminPasswordConfigured()) {
+      console.error(
+        "[נפרדים בחיוך][admin-login] ADMIN_PASSWORD חסר או ריק ב-process.env אחרי טעינת הסביבה. " +
+          "בדקו .env.local והפעלה מחדש של שרת הפיתוח, או משתני סביבה בפריסה.",
+      );
+      return NextResponse.json({ error: adminPasswordMissingMessage() }, { status: 503 });
+    }
   }
   let body: { password?: string };
   try {

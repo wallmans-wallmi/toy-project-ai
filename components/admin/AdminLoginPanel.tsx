@@ -41,6 +41,17 @@ export function AdminLoginPanel({ onLogin, error }: AdminLoginPanelProps) {
         <Label htmlFor={pwId} className="text-[12px] font-semibold text-slate-700">
           סיסמה
         </Label>
+        {/* שדה משתמש נסתר — מרגיע אזהרות DOM/מנהלי סיסמאות על טופס ללא username */}
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          defaultValue="admin"
+          tabIndex={-1}
+          readOnly
+          className="sr-only"
+          aria-hidden="true"
+        />
         <div className="relative">
           <Input
             id={pwId}
