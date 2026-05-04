@@ -1,0 +1,20 @@
+---
+alwaysApply: true
+---
+
+### 1. FILE SIZE LIMITS
+- **Strict Limit:** No single file should exceed 400 lines of code.
+- **Proactive Refactor:** If a file reaches 300 lines, you MUST suggest splitting it into smaller, reusable components.
+
+### 2. MODULARITY & SEPARATION OF CONCERNS
+- **Logic Isolation:** All business logic, API calls (Supabase/Payments), and state management MUST be moved to Custom Hooks in `/src/app/hooks/`.
+- **Atomic Components:** Reusable UI elements (Buttons, Inputs, Cards) must be extracted to `@/components/ui` or relevant folders.
+- **Utils:** Helper functions (formatting dates, Hebrew text manipulation) MUST reside in `/src/lib/utils/`.
+
+### 3. RTL & HEBREW STANDARDS
+- **Logical Properties:** Use Tailwind logical properties (e.g., `ps-4`, `me-2`, `inset-inline-start`) instead of directional ones (`pl-4`, `mr-2`, `left-0`) to ensure perfect RTL support.
+- **Friendly Tone:** Maintain a warm, empathetic, and "at eye level" Hebrew tone throughout the UI.
+
+### 4. TYPE SAFETY & STABILITY
+- **Strict Typing:** No `any` type allowed. Always define proper TypeScript Interfaces or Types.
+- **Zero-Error Policy:** Verify syntax, matching brackets, and imports before providing code.

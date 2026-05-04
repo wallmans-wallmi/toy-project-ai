@@ -2,26 +2,203 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  @keyframes pickup-page-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-pickup-page-enter {
+    animation: pickup-page-enter 0.35s ease-out forwards;
+  }
+}
+
+@layer base {
+  .theme {
+    --font-heading: var(--font-rubik), var(--font-heebo), ui-sans-serif, system-ui, sans-serif;
+    --font-sans: var(--font-rubik), var(--font-heebo), ui-sans-serif, system-ui, sans-serif;
+    --brand-soft-purple: #f3e8ff;
+    --brand-mint: #ecfdf5;
+    --brand-warm-white: #fafaf9;
+  }
+  :root {
+    /* ניגודיות טקסט משני מול רקע עמום (~AA על רקע סגול בהיר) */
+    --background: #f9f5ff;
+    --foreground: #111827;
+    --card: #ffffff;
+    --card-foreground: #111827;
+    --popover: #ffffff;
+    --popover-foreground: #111827;
+    --primary: #a855f7;
+    --primary-foreground: #fafaf9;
+    --secondary: #ecfdf5;
+    --secondary-foreground: #14532d;
+    --muted: #f3e8ff;
+    --muted-foreground: #4b5563;
+    --accent: #f3e8ff;
+    --accent-foreground: #4c1d95;
+    --destructive: oklch(0.577 0.245 27.325);
+    --destructive-foreground: #fafaf9;
+    --border: #e7e5e4;
+    --input: #e7e5e4;
+    --ring: #9333ea;
+    --chart-1: #c4b5fd;
+    --chart-2: #6ee7b7;
+    --chart-3: #f3e8ff;
+    --chart-4: #57534e;
+    --chart-5: #292524;
+    --radius: 0.75rem;
+    --sidebar: #fafaf9;
+    --sidebar-foreground: #111827;
+    --sidebar-primary: #a855f7;
+    --sidebar-primary-foreground: #fafaf9;
+    --sidebar-accent: #f3e8ff;
+    --sidebar-accent-foreground: #4c1d95;
+    --sidebar-border: #e7e5e4;
+    --sidebar-ring: #9333ea;
+  }
+  .dark {
+    --background: #f9f5ff;
+    --foreground: #111827;
+    --card: #ffffff;
+    --card-foreground: #111827;
+    --popover: #ffffff;
+    --popover-foreground: #111827;
+    --primary: #a855f7;
+    --primary-foreground: #fafaf9;
+    --secondary: #ecfdf5;
+    --secondary-foreground: #14532d;
+    --muted: #f3e8ff;
+    --muted-foreground: #4b5563;
+    --accent: #f3e8ff;
+    --accent-foreground: #4c1d95;
+    --destructive: oklch(0.577 0.245 27.325);
+    --destructive-foreground: #fafaf9;
+    --border: #e7e5e4;
+    --input: #e7e5e4;
+    --ring: #9333ea;
+    --sidebar: #fafaf9;
+    --sidebar-foreground: #111827;
+    --sidebar-primary: #a855f7;
+    --sidebar-primary-foreground: #fafaf9;
+    --sidebar-accent: #f3e8ff;
+    --sidebar-accent-foreground: #4c1d95;
+    --sidebar-border: #e7e5e4;
+    --sidebar-ring: #9333ea;
+  }
+
+  html[data-a11y-text-scale="112"] {
+    font-size: 112.5%;
+  }
+  html[data-a11y-text-scale="125"] {
+    font-size: 125%;
+  }
+
+  html[data-a11y-readable-font="true"] body {
+    font-family:
+      system-ui,
+      "Segoe UI",
+      Roboto,
+      "Helvetica Neue",
+      Arial,
+      "Noto Sans Hebrew",
+      sans-serif;
+  }
+
+  html[data-a11y-link-underline="true"] a[href]:where(:not(.skip-to-main)) {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  html[data-a11y-high-contrast="true"] {
+    --background: #ffffff;
+    --foreground: #0a0a0a;
+    --card: #ffffff;
+    --card-foreground: #0a0a0a;
+    --muted-foreground: #262626;
+    --border: #525252;
+    --input: #525252;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+
+  :focus-visible {
+    outline: 2px solid #9333ea;
+    outline-offset: 2px;
+  }
+
+  .skip-to-main {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+    background: #9333ea;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-decoration: none;
+    z-index: 99999;
+  }
+  .skip-to-main:focus {
+    position: fixed;
+    inset-inline-start: 1rem;
+    top: 1rem;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0.75rem 1.25rem;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 40px -12px rgba(147, 51, 234, 0.35);
+    outline: 3px solid #fff;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /**
+   * תא ריבועי אחיד לאימוג'י מסלול — מגדילים התאמה חזותית בין גליפים שונים.
+   */
+  .journey-emoji-slot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    line-height: 1;
+    font-family:
+      "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+  }
+
+  /* זהה ל־.cat-icon / .reward-emoji ב־nifradim-claude.css */
+  .journey-emoji-slot--md {
+    width: 3.75rem;
+    height: 3.75rem;
+    font-size: 2rem;
   }
 }

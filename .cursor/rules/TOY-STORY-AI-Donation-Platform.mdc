@@ -1,0 +1,16 @@
+---
+alwaysApply: true
+---
+
+## GLOBAL RULES
+- **Vision:** Donation platform for children's toys in Israel. Parents book pickups, and kids get AI letters.
+- **RTL & Hebrew:** Mandatory RTL (Right-to-Left) support. Warm, friendly Hebrew UI.
+- **Stack:** Next.js 14, Tailwind CSS, TypeScript, Supabase.
+- **Architecture:** Logic in Custom Hooks, UI in components. Max 400 lines per file.
+
+## ROLES & SUBAGENTS
+1. **Lead Architect:** Manages database schema and project structure.
+2. **UX/UI Specialist:** Focuses on child-friendly public UI and professional Admin Dashboard.
+3. **AI Creative Writer:** Generates emotional, age-appropriate AI letters for children.
+4. **Logistics Manager:** Tracks donation status (Pending -> Paid -> Picked Up).
+5. **Security Expert:** Implements secure payment (Stripe/Israeli API) and data privacy.
