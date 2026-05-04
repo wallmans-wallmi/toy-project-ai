@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   ADMIN_SESSION_COOKIE,
+  adminPasswordMissingMessage,
   computeAdminSessionToken,
   isAdminPasswordConfigured,
   verifyAdminPlainPassword,
@@ -10,10 +11,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   if (!isAdminPasswordConfigured()) {
-    return NextResponse.json(
-      { error: "השרת לא הוגדר עם ADMIN_PASSWORD — לא ניתן להיכנס לאזור הניהול" },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: adminPasswordMissingMessage() }, { status: 503 });
   }
   let body: { password?: string };
   try {

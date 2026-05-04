@@ -3,7 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { Eye, EyeOff } from "lucide-react";
+import { useId, useState } from "react";
 
 type AdminLoginPanelProps = {
   onLogin: (password: string) => Promise<boolean>;
@@ -13,6 +15,8 @@ type AdminLoginPanelProps = {
 export function AdminLoginPanel({ onLogin, error }: AdminLoginPanelProps) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const pwId = useId();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,17 +38,32 @@ export function AdminLoginPanel({ onLogin, error }: AdminLoginPanelProps) {
       <h2 className="text-[16px] font-bold text-slate-900">כניסה לאזור ניהול</h2>
       <p className="mt-1 text-[12px] text-slate-600">הזינו את סיסמת האדמין שהוגדרה בשרת</p>
       <div className="mt-4 space-y-2">
-        <Label htmlFor="admin-pw" className="text-[12px] font-semibold text-slate-700">
+        <Label htmlFor={pwId} className="text-[12px] font-semibold text-slate-700">
           סיסמה
         </Label>
-        <Input
-          id="admin-pw"
-          type="password"
-          autoComplete="current-password"
-          className="h-11 rounded-xl border-slate-200"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div className="relative">
+          <Input
+            id={pwId}
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            className="h-11 rounded-xl border-slate-200 ps-3 pe-11"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button
+            type="button"
+            className={cn(
+              "absolute end-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 outline-none transition-colors",
+              "hover:bg-[#F9F5FF] hover:text-[#9333EA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9333EA] focus-visible:ring-offset-2",
+            )}
+            onClick={() => setShowPassword((v) => !v)}
+            aria-pressed={showPassword}
+            aria-label={showPassword ? "הסתרת סיסמה" : "הצגת סיסמה"}
+            title={showPassword ? "הסתרת סיסמה" : "הצגת סיסמה"}
+          >
+            {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+          </button>
+        </div>
       </div>
       {error ? (
         <p className="mt-3 text-[12px] font-medium text-red-700" role="alert">
