@@ -8,6 +8,23 @@ export const DONATION_JOURNEY_IDS = [
 
 export type DonationJourneyId = (typeof DONATION_JOURNEY_IDS)[number];
 
+/** מסלולי גמילה — פלט AI הוא תעודת "בוגר/ת", לא מכתב צעצועים */
+export const WEANING_JOURNEY_IDS = [
+  "pacifier_weaning",
+  "diaper_weaning",
+  "bottle_weaning",
+] as const;
+
+export type WeaningJourneyId = (typeof WEANING_JOURNEY_IDS)[number];
+
+export function isToyDropoffJourney(value: unknown): value is "toy_dropoff" {
+  return value === "toy_dropoff";
+}
+
+export function isWeaningJourneyId(value: unknown): value is WeaningJourneyId {
+  return typeof value === "string" && WEANING_JOURNEY_IDS.includes(value as WeaningJourneyId);
+}
+
 /** אימוג'י אחיד לכרטיסי מסלול בדף הבית, בטופס וב«פרס מותאם» */
 export const DONATION_JOURNEY_EMOJI: Record<DonationJourneyId, string> = {
   toy_dropoff: "🧸",

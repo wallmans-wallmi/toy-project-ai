@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { PICKUP_FEE_AGOROT, PICKUP_FEE_ILS } from "@/lib/constants/pricing";
-import { isDonationJourneyId } from "@/lib/donation-journey";
+import { isDonationJourneyId, isToyDropoffJourney } from "@/lib/donation-journey";
 import { getRegionById, getSlotForRegion } from "@/lib/pickup-regions";
 import { formatPickupTimeSummaryLine } from "@/lib/pickup-schedule-slots";
 import { getStripe } from "@/lib/stripe/server";
@@ -33,6 +33,7 @@ function isValidEmail(value: string): boolean {
 
 function parseToyItemsPayload(raw: unknown): ToyItemPayload[] | null {
   if (!Array.isArray(raw)) return null;
+  if (raw.length === 0) return [];
   const out: ToyItemPayload[] = [];
   for (const entry of raw) {
     if (!entry || typeof entry !== "object") return null;
@@ -69,14 +70,24 @@ export async function POST(req: Request) {
   const termsAccepted = body.termsAccepted === true;
   const journeyTypeRaw = body.journeyType;
 
-  const toyPayloads = parseToyItemsPayload(body.toyItems);
-
   if (!isDonationJourneyId(journeyTypeRaw)) {
     return NextResponse.json({ error: "נא לבחור את המשימה שלכם לפני התשלום" }, { status: 400 });
   }
 
-  if (!toyPayloads || toyPayloads.length === 0) {
-    return NextResponse.json({ error: "נא למלא לפחות פריט אחד עם כל השדות" }, { status: 400 });
+  const toyPayloads = parseToyItemsPayload(body.toyItems);
+  if (toyPayloads === null) {
+    return NextResponse.json(
+      { error: "רשימת הפריטים לא תקינה — נא לעדכן ולנסות שוב" },
+      { status: 400 },
+    );
+  }
+
+  /** מסלול צעצועים דורש לפחות פריט אחד מלא; מסלולי גמילה מאפשרים רשימה ריקה */
+  if (isToyDropoffJourney(journeyTypeRaw) && toyPayloads.length === 0) {
+    return NextResponse.json(
+      { error: "נא למלא לפחות פריט אחד עם כל השדות" },
+      { status: 400 },
+    );
   }
 
   if (!toysQualityConfirmed) {
@@ -142,6 +153,9 @@ export async function POST(req: Request) {
         journey_type: journeyTypeRaw,
         payment_status: false,
         amount_paid: 0,
+        letter_status: "pending",
+        ai_generated_letter: null,
+        destination_name: null,
       })
       .select("id")
       .single();

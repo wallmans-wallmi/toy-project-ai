@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import Stripe from "stripe";
 import { PICKUP_FEE_ILS } from "@/lib/constants/pricing";
+import { processDonationLetterAfterPayment } from "@/lib/donation-letter";
 import { getStripe } from "@/lib/stripe/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
@@ -57,6 +59,12 @@ export async function POST(req: Request) {
 
       if (error) {
         console.error(error);
+      } else {
+        after(() =>
+          processDonationLetterAfterPayment(donationId).catch((err) =>
+            console.error("donation-letter after hook:", err),
+          ),
+        );
       }
     } catch (e) {
       console.error(e);
