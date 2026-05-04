@@ -17,6 +17,8 @@ type DonationFormToyStepProps = {
   isPickup: boolean;
   /** כרטיסי צעצוע / צ׳יפים כמו ב־HTML v2 */
   claudeChrome?: boolean;
+  /** שם ילד/ה גלובלי מעל הרשימה — כבוי במסלול צעצועים עם שם לכל פריט */
+  showGlobalChildName?: boolean;
   /** כוכבית ליד שדות חובה (שם ילד, שם פריט, צבע, גודל) */
   showRequiredStars?: boolean;
   fieldLabelClass: string;
@@ -34,6 +36,7 @@ export function DonationFormToyStep({
   toyItems,
   isPickup,
   claudeChrome = false,
+  showGlobalChildName = true,
   showRequiredStars = false,
   fieldLabelClass,
   sectionSubClass,
@@ -61,20 +64,22 @@ export function DonationFormToyStep({
 
   return (
     <div className="space-y-6">
-      <div className={cn("space-y-2", claudeChrome && "field-group")}>
-        <Label htmlFor="donation-child-name" className={fieldLabelClass}>
-          שם הילד או הילדה
-          {showRequiredStars ? <RequiredFieldStar /> : null}
-        </Label>
-        <Input
-          id="donation-child-name"
-          className={childInputClass}
-          value={childName}
-          onChange={(e) => onChildNameChange(e.target.value)}
-          placeholder="למשל נועם או שירה"
-          autoComplete="off"
-        />
-      </div>
+      {showGlobalChildName ? (
+        <div className={cn("space-y-2", claudeChrome && "field-group")}>
+          <Label htmlFor="donation-child-name" className={fieldLabelClass}>
+            שם הילד או הילדה
+            {showRequiredStars ? <RequiredFieldStar /> : null}
+          </Label>
+          <Input
+            id="donation-child-name"
+            className={childInputClass}
+            value={childName}
+            onChange={(e) => onChildNameChange(e.target.value)}
+            placeholder="למשל נועם או שירה"
+            autoComplete="off"
+          />
+        </div>
+      ) : null}
 
       {hint ? <p className={sectionSubClass}>{hint}</p> : null}
 
@@ -127,6 +132,22 @@ export function DonationFormToyStep({
             </div>
 
             <div className="space-y-4">
+              {!showGlobalChildName ? (
+                <div className={cn("space-y-2", claudeChrome && "field-group")}>
+                  <Label htmlFor={`item-child-${item.id}`} className={fieldLabelClass}>
+                    שם הילד/ה לפריט
+                    {showRequiredStars ? <RequiredFieldStar /> : null}
+                  </Label>
+                  <Input
+                    id={`item-child-${item.id}`}
+                    className={itemInputClass}
+                    value={item.itemChildName}
+                    onChange={(e) => onUpdateToy(item.id, { itemChildName: e.target.value })}
+                    placeholder="למשל נועם"
+                    autoComplete="off"
+                  />
+                </div>
+              ) : null}
               <div className={cn("space-y-2", claudeChrome && "field-group")}>
                 <Label htmlFor={`item-name-${item.id}`} className={fieldLabelClass}>
                   שם הפריט

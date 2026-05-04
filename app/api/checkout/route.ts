@@ -12,7 +12,10 @@ export const runtime = "nodejs";
 
 /**
  * Lead capture / עגלה נטושה: אימות → insert מיידי ל־Supabase (service role, עוקף RLS)
- * עם payment_status = pending — ללא שער תשלום.
+ * עם payment_status = pending.
+ *
+ * אין כאן תלות בחברת סליקה — גם במסך "תשלום בהדמה" בצד הלקוח, לחיצה על שמירה קוראת לנתיב הזה
+ * ורושמת שורה ב־`public.donations` (כולל toy_items, child_name וכו׳) כל עוד האימות עובר.
  */
 export async function POST(req: Request) {
   let body: DonationCheckoutRequestBody;

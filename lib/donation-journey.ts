@@ -2,10 +2,10 @@ import type { PickupTimeSlot } from "@/lib/pickup-regions";
 import { getRegionById, getSlotForRegion } from "@/lib/pickup-regions";
 import { formatPickupTimeSummaryLine } from "@/lib/pickup-schedule-slots";
 import {
-  formatToyDescriptionFromPayloads,
+  formatCheckoutToyItemsDescription,
   parseToyItemsPayload,
-  type ToyItemPayload,
-} from "@/lib/toy-donation";
+  type DonationToyItemJson,
+} from "@/lib/donation-checkout-items";
 
 /** מזהי מסלול תרומה או גמילה לשדה journey_type במסד */
 export const DONATION_JOURNEY_IDS = [
@@ -132,7 +132,7 @@ export type DonationCheckoutLeadValidated = {
   region: string;
   pickupCity: string | null;
   journeyType: DonationJourneyId;
-  toyPayloads: ToyItemPayload[];
+  toyPayloads: DonationToyItemJson[];
   pickupSlotId: string;
   pickupDateRaw: string;
   scheduledSlotLabel: string;
@@ -178,6 +178,15 @@ function isValidEmailForCheckout(value: string): boolean {
 /**
  * אימות מלא של גוף הבקשה ל־checkout — לפני כל כתיבה ל־Supabase (ליד / עגלה נטושה).
  */
+/** שם ילד מהפריט הראשון שמכיל שם — צעצועים / מוצץ בפורמט העשיר */
+function childNameFromToyItemsPayload(items: DonationToyItemJson[]): string {
+  for (const p of items) {
+    if (p.type === "toy" && p.childName.trim()) return p.childName.trim();
+    if (p.type === "pacifier" && p.childName.trim()) return p.childName.trim();
+  }
+  return "";
+}
+
 export function validateDonationCheckoutLead(
   body: DonationCheckoutRequestBody,
 ): { ok: DonationCheckoutLeadValidated } | { error: string } {
@@ -186,7 +195,7 @@ export function validateDonationCheckoutLead(
     return { error: "נא לבחור את המשימה שלכם לפני התשלום" };
   }
 
-  const toyPayloads = parseToyItemsPayload(body.toyItems);
+  const toyPayloads = parseToyItemsPayload(journeyTypeRaw, body.toyItems);
   if (toyPayloads === null) {
     return { error: "רשימת הפריטים לא תקינה — נא לעדכן ולנסות שוב" };
   }
@@ -199,7 +208,10 @@ export function validateDonationCheckoutLead(
     return { error: "נא לאשר את מצב הפריטים לפני התשלום" };
   }
 
-  const childName = body.childName?.trim() ?? "";
+  let childName = body.childName?.trim() ?? "";
+  if (!childName) {
+    childName = childNameFromToyItemsPayload(toyPayloads);
+  }
   if (!childName) {
     return { error: "נא למלא את שם הילד או הילדה" };
   }
@@ -264,7 +276,7 @@ export function validateDonationCheckoutLead(
 
 /** שורת insert ל־donations — ליד מיד לאחר אימות (עגלה נטושה, לפני תשלום) */
 export function buildDonationAbandonedCartLeadRow(v: DonationCheckoutLeadValidated): Record<string, unknown> {
-  const toyDescription = formatToyDescriptionFromPayloads(v.toyPayloads);
+  const toyDescription = formatCheckoutToyItemsDescription(v.toyPayloads);
   return {
     first_name: v.firstName,
     last_name: v.lastName,

@@ -1,10 +1,14 @@
 import type { DonationFormState } from "@/hooks/use-donation-form";
 import { PICKUP_FEE_LABEL } from "@/lib/constants/pricing";
-import { getDonationJourneyLabel } from "@/lib/donation-journey";
+import {
+  summaryLinesFromFormInput,
+  type CheckoutItemsFormInput,
+} from "@/lib/donation-checkout-items";
+import { displayPrimaryChildName } from "@/components/public/donation-form-validation";
+import { getDonationJourneyLabel, isDonationJourneyId } from "@/lib/donation-journey";
 import { formatPickupAddressLine } from "@/lib/format-pickup-address";
 import type { PickupTimeSlot } from "@/lib/pickup-regions";
 import { formatPickupTimeSummaryLine } from "@/lib/pickup-schedule-slots";
-import { normalizedToyPayloads, toySizeLabel } from "@/lib/toy-donation";
 
 type DonationFormSummaryProps = {
   form: DonationFormState;
@@ -19,13 +23,27 @@ function dashOr(value: string | undefined | null): string {
   return v ? v : "לא צוין";
 }
 
+function checkoutInput(form: DonationFormState): CheckoutItemsFormInput | null {
+  if (!isDonationJourneyId(form.journeyType)) return null;
+  return {
+    journeyType: form.journeyType,
+    childName: form.childName,
+    toyItems: form.toyItems,
+    pacifierQuantity: form.pacifierQuantity,
+    bottleSubChoice: form.bottleSubChoice,
+    diaperPackageType: form.diaperPackageType,
+  };
+}
+
 export function DonationFormSummary({
   form,
   regionLabel,
   selectedSlot,
   variant = "default",
 }: DonationFormSummaryProps) {
-  const toys = normalizedToyPayloads(form.toyItems);
+  const itemsInput = checkoutInput(form);
+  const itemLines = itemsInput ? summaryLinesFromFormInput(itemsInput) : [];
+  const displayChildName = displayPrimaryChildName(form);
   const addressLine = formatPickupAddressLine(form);
   const pickupTimeLine =
     formatPickupTimeSummaryLine(form.pickupDate, form.pickupSlotId, selectedSlot?.label ?? "") ||
@@ -33,17 +51,13 @@ export function DonationFormSummary({
     "";
 
   const itemsList =
-    toys.length === 0 ? (
+    itemLines.length === 0 ? (
       dashOr("")
     ) : (
       <ul className="m-0 list-none space-y-2 p-0 text-start">
-        {toys.map((t, i) => (
-          <li key={`${t.name}-${t.color}-${t.size}-${i}`} className="leading-snug">
-            <span className="font-semibold text-[var(--text)]">{t.name}</span>
-            <span className="text-[var(--text-muted)]">
-              {" "}
-              {t.color} {toySizeLabel(t.size)}
-            </span>
+        {itemLines.map((line, i) => (
+          <li key={`${line}-${i}`} className="leading-snug text-[var(--text)]">
+            {line}
           </li>
         ))}
       </ul>
@@ -102,7 +116,7 @@ export function DonationFormSummary({
         </div>
         <div className="summary-row">
           <span className="summary-key">שם הילד או הילדה</span>
-          <span className="summary-val">{dashOr(form.childName)}</span>
+          <span className="summary-val">{dashOr(displayChildName)}</span>
         </div>
         <div className="summary-row">
           <span className="summary-key">פריטים</span>
@@ -170,7 +184,7 @@ export function DonationFormSummary({
       </div>
       <div className="flex justify-between gap-4 border-b border-violet-100 pb-2">
         <dt className="text-slate-500">שם הילד או הילדה</dt>
-        <dd className="max-w-[65%] text-start font-medium">{dashOr(form.childName)}</dd>
+        <dd className="max-w-[65%] text-start font-medium">{dashOr(displayChildName)}</dd>
       </div>
       <div className="flex justify-between gap-4 border-b border-violet-100 pb-2">
         <dt className="shrink-0 text-slate-500">פריטים</dt>

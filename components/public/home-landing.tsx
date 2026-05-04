@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { pickupUrlWithJourney } from "@/lib/donation-checkout-items";
 import type { DonationJourneyId } from "@/lib/donation-journey";
 import { DONATION_JOURNEY_EMOJI, DONATION_JOURNEY_OPTIONS } from "@/lib/donation-journey";
 import { cn } from "@/lib/utils";
@@ -58,7 +59,7 @@ function HeroJourneyPanel() {
           {heroJourneyCards.map((card) => (
             <Link
               key={card.id}
-              href={`/services#${card.id}`}
+              href={pickupUrlWithJourney(card.id)}
               className={cn(
                 "flex min-h-[108px] flex-col items-center justify-center gap-1 rounded-2xl p-3 text-center transition-transform hover:-translate-y-0.5 sm:min-h-[120px] sm:p-4",
                 card.bg,
@@ -178,7 +179,7 @@ export function HomeLanding() {
             {DONATION_JOURNEY_OPTIONS.map((opt) => (
               <li key={opt.id}>
                 <Link
-                  href={`/services#${opt.id}`}
+                  href={pickupUrlWithJourney(opt.id)}
                   className="flex min-h-[52px] items-center gap-3 rounded-2xl border-2 border-slate-200/90 bg-white p-4 ps-4 pe-4 transition-colors hover:border-[#9333EA] hover:bg-violet-50/60"
                 >
                   <span

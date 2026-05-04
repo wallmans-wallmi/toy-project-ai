@@ -3,19 +3,41 @@
 import { useCallback, useState } from "react";
 import type { DonationFormState } from "@/hooks/use-donation-form";
 import {
+  buildCheckoutToyItemsJson,
+  type CheckoutItemsFormInput,
+} from "@/lib/donation-checkout-items";
+import {
   DONATION_PAYMENT_STATUS_PENDING,
   type CheckoutLeadCapturedApiPayload,
 } from "@/lib/donation-journey";
+import { isDonationJourneyId, isToyDropoffJourney } from "@/lib/donation-journey";
 import { formatPickupAddressLine } from "@/lib/format-pickup-address";
-import { normalizedToyPayloads } from "@/lib/toy-donation";
 
 export type CheckoutSuccessPayload = {
-  /** מזהה התרומה ב־Supabase */
   id: string;
   payment_status: typeof DONATION_PAYMENT_STATUS_PENDING;
-  /** שדות לא-רגישים ל־Mixpanel / Meta — ללא PII */
   lead: CheckoutLeadCapturedApiPayload["lead"];
 };
+
+function checkoutItemsInput(form: DonationFormState): CheckoutItemsFormInput | null {
+  if (!isDonationJourneyId(form.journeyType)) return null;
+  return {
+    journeyType: form.journeyType,
+    childName: form.childName,
+    toyItems: form.toyItems,
+    pacifierQuantity: form.pacifierQuantity,
+    bottleSubChoice: form.bottleSubChoice,
+    diaperPackageType: form.diaperPackageType,
+  };
+}
+
+function resolveChildNameForApi(form: DonationFormState): string {
+  if (isToyDropoffJourney(form.journeyType)) {
+    const fromItem = form.toyItems.find((t) => t.itemChildName.trim())?.itemChildName.trim();
+    return (fromItem || form.childName).trim();
+  }
+  return form.childName.trim();
+}
 
 export function useDonationCheckout() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -31,13 +53,21 @@ export function useDonationCheckout() {
     setCheckoutSuccess(null);
     setCheckoutLoading(true);
     try {
+      const itemsInput = checkoutItemsInput(form);
+      if (!itemsInput) {
+        setCheckoutError("נא לבחור מסלול לפני השמירה");
+        return;
+      }
+      const toyItems = buildCheckoutToyItemsJson(itemsInput);
+      const childName = resolveChildNameForApi(form);
+
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName: form.firstName,
           lastName: form.lastName,
-          childName: form.childName,
+          childName,
           journeyType: form.journeyType,
           phone: form.phone,
           email: form.email,
@@ -45,7 +75,7 @@ export function useDonationCheckout() {
           doorCode: form.doorCode,
           region: form.region,
           pickupCity: form.pickupCity.trim() || undefined,
-          toyItems: normalizedToyPayloads(form.toyItems),
+          toyItems,
           toysQualityConfirmed: form.toysQualityConfirmed,
           termsAccepted: form.termsAccepted,
           pickupSlotId: form.pickupSlotId,

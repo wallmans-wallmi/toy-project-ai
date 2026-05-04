@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HomeRewardCards } from "@/components/public/home-reward-cards";
 import { PICKUP_FEE_ILS } from "@/lib/constants/pricing";
+import { pickupUrlWithJourney } from "@/lib/donation-checkout-items";
 import type { DonationJourneyId } from "@/lib/donation-journey";
 import { DONATION_JOURNEY_EMOJI } from "@/lib/donation-journey";
 
@@ -78,7 +79,7 @@ export function ClaudeMarketingHome() {
               <div className="hero-card-grid-wrap">
                 <div className="hero-visual-grid">
                   {HERO_VISUAL_SLOTS.map(({ journeyId, slotClass, title, subtitle }) => (
-                    <Link key={journeyId} href="/pickup" className={`vg-slot ${slotClass}`}>
+                    <Link key={journeyId} href={pickupUrlWithJourney(journeyId)} className={`vg-slot ${slotClass}`}>
                       <div className="vg-slot-bg">
                         <span className="vg-slot-emoji" aria-hidden>
                           {DONATION_JOURNEY_EMOJI[journeyId]}

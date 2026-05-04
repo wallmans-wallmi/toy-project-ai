@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { buttonVariants } from "@/components/ui/button";
+import { pickupUrlWithJourney } from "@/lib/donation-checkout-items";
 import { DONATION_JOURNEY_OPTIONS } from "@/lib/donation-journey";
 import { JOURNEY_SERVICE_SECTIONS, SERVICES_INTRO } from "@/lib/services-page-content";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,17 @@ export default function ServicesPage() {
                   </li>
                 ))}
               </ul>
+              <div className="mt-5">
+                <Link
+                  href={pickupUrlWithJourney(opt.id)}
+                  className={cn(
+                    buttonVariants({ size: "sm" }),
+                    "inline-flex rounded-xl bg-[#9333EA] px-4 py-2 text-sm font-bold text-white hover:bg-[#7c3aed]",
+                  )}
+                >
+                  הזמנת איסוף במסלול הזה
+                </Link>
+              </div>
             </section>
           );
         })}

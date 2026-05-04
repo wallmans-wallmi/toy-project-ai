@@ -30,6 +30,35 @@ function toyItemsSummary(items: unknown): string {
   for (const entry of items) {
     if (!entry || typeof entry !== "object") continue;
     const o = entry as Record<string, unknown>;
+    const t = o.type;
+    if (t === "toy") {
+      const itemName = typeof o.itemName === "string" ? o.itemName.trim() : "";
+      const color = typeof o.color === "string" ? o.color.trim() : "";
+      const size = typeof o.size === "string" ? o.size.trim() : "";
+      const child = typeof o.childName === "string" ? o.childName.trim() : "";
+      if (itemName) {
+        const base = [itemName, color, size].filter(Boolean).join(" · ");
+        lines.push(child ? `${child}: ${base}` : base);
+      }
+      continue;
+    }
+    if (t === "pacifier") {
+      const q = typeof o.quantity === "number" ? o.quantity : "";
+      const child = typeof o.childName === "string" ? o.childName.trim() : "";
+      lines.push([child && `ילד/ה: ${child}`, q && `כמות ${q}`].filter(Boolean).join(" · "));
+      continue;
+    }
+    if (t === "bottles_formula") {
+      const sub = o.subType === "formula" ? "פורמולה" : o.subType === "bottles" ? "בקבוקים" : "";
+      const note = typeof o.note === "string" ? o.note.trim() : "";
+      lines.push([sub, note].filter(Boolean).join(" · "));
+      continue;
+    }
+    if (t === "diapers") {
+      const status = typeof o.status === "string" ? o.status.trim() : "";
+      if (status) lines.push(`חיתולים · ${status}`);
+      continue;
+    }
     const name = typeof o.name === "string" ? o.name.trim() : "";
     const color = typeof o.color === "string" ? o.color.trim() : "";
     const size = typeof o.size === "string" ? o.size.trim() : "";

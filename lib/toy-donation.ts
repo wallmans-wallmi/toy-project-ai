@@ -6,6 +6,8 @@ export type ToySizeId = "small" | "medium" | "large";
 
 export type ToyItemRow = {
   id: string;
+  /** שם הילד/ה לפריט — חובה במסלול צעצועים */
+  itemChildName: string;
   name: string;
   color: string;
   size: ToySizeId | "";
@@ -35,7 +37,7 @@ function newToyId(): string {
 }
 
 export function createEmptyToyItem(): ToyItemRow {
-  return { id: newToyId(), name: "", color: "", size: "" };
+  return { id: newToyId(), itemChildName: "", name: "", color: "", size: "" };
 }
 
 export function toySizeLabel(size: ToySizeId): string {
@@ -48,16 +50,22 @@ export function isToySizeId(value: unknown): value is ToySizeId {
 }
 
 /**
- * פרסור מערך פריטים מה-API (checkout). מחזיר null אם המבנה לא תקין.
- * מערך ריק חוקי למסלולי גמילה בלי פריטים מפורטים.
+ * פרסור מערך `toy_items` מה־API לפי מסלול — פורמט אחיד + legacy.
+ * מועבר ל־`donation-checkout-items` כדי לשמור על מקור אמת יחיד.
  */
-export function parseToyItemsPayload(raw: unknown): ToyItemPayload[] | null {
+export { parseToyItemsPayload } from "@/lib/donation-checkout-items";
+
+/**
+ * פרסור שורות צעצוע ישנות בלבד `{ name, color, size }` — לתאימות לאחור (ללא `journeyType`).
+ */
+export function parseLegacyToyOnlyPayload(raw: unknown): ToyItemPayload[] | null {
   if (!Array.isArray(raw)) return null;
   if (raw.length === 0) return [];
   const out: ToyItemPayload[] = [];
   for (const entry of raw) {
     if (!entry || typeof entry !== "object") return null;
     const o = entry as Record<string, unknown>;
+    if (o.type != null) return null;
     const name = typeof o.name === "string" ? o.name.trim() : "";
     const color = typeof o.color === "string" ? o.color.trim() : "";
     const size = o.size;
@@ -70,7 +78,14 @@ export function parseToyItemsPayload(raw: unknown): ToyItemPayload[] | null {
 /** פריטים מלאים בלבד, לשמירה ותצוגה */
 export function normalizedToyPayloads(rows: ToyItemRow[]): ToyItemPayload[] {
   return rows
-    .filter((r) => r.name.trim() && r.color.trim() && r.size && isToySizeId(r.size))
+    .filter(
+      (r) =>
+        r.itemChildName.trim() &&
+        r.name.trim() &&
+        r.color.trim() &&
+        r.size &&
+        isToySizeId(r.size),
+    )
     .map((r) => ({
       name: r.name.trim(),
       color: r.color.trim(),
@@ -89,8 +104,12 @@ export function formatToyDescriptionFromPayloads(items: ToyItemPayload[]): strin
 /** שורות פריטים מלאות ללא שורות חצי מלאות */
 export function donationItemsRowsComplete(rows: ToyItemRow[]): boolean {
   const partial = rows.some((r) => {
-    const touched = Boolean(r.name.trim() || r.color.trim() || r.size);
-    const complete = Boolean(r.name.trim() && r.color.trim() && r.size);
+    const touched = Boolean(
+      r.itemChildName.trim() || r.name.trim() || r.color.trim() || r.size,
+    );
+    const complete = Boolean(
+      r.itemChildName.trim() && r.name.trim() && r.color.trim() && r.size && isToySizeId(r.size),
+    );
     return touched && !complete;
   });
   if (partial) return false;

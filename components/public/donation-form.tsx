@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,49 +9,57 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   ClaudePickupStepIndicator,
   DonationFormProgress,
   RequiredFieldStar,
 } from "@/components/public/donation-form-progress";
 import { DonationFormSummary } from "@/components/public/donation-form-summary";
-import { DonationFormToyStep } from "@/components/public/donation-form-toy-step";
-import { canAdvanceToNextStep } from "@/components/public/donation-form-validation";
-import { ShippingPickers } from "@/components/forms/ShippingPickers";
-import { PickupDoorNotice } from "@/components/public/pickup-door-notice";
+import { DonationFormJourneyFields } from "@/components/public/donation-form-journey-fields";
+import {
+  canAdvanceToNextStep,
+  displayPrimaryChildName,
+} from "@/components/public/donation-form-validation";
+import { DonationFormContactFields } from "@/components/public/donation-form-contact-fields";
+import {
+  DonationFormAgreementBlocks,
+  DonationFormRegionSlotFields,
+} from "@/components/public/donation-form-region-legal";
 import {
   DonationCheckoutLoadingPanel,
   DonationCheckoutSuccessPanel,
 } from "@/components/public/donation-checkout-feedback";
 import { useDonationCheckout } from "@/hooks/use-donation-checkout";
 import { useDonationForm } from "@/hooks/use-donation-form";
-import { applyPickupDateTime } from "@/hooks/useShippingDetails";
 import { PICKUP_FEE_ILS, PICKUP_FEE_LABEL } from "@/lib/constants/pricing";
 import {
   DONATION_JOURNEY_EMOJI,
   DONATION_JOURNEY_OPTIONS,
   type DonationJourneyId,
 } from "@/lib/donation-journey";
-import { getPickupMonThuForWeekOffset } from "@/lib/pickup-schedule-slots";
-import { getRegionById, getSlotForRegion, getSlotsForRegion, PICKUP_REGIONS } from "@/lib/pickup-regions";
+import { getRegionById, getSlotForRegion, getSlotsForRegion } from "@/lib/pickup-regions";
 import { cn } from "@/lib/utils";
+import { PickupDonationItemsStep } from "@/components/forms/PickupDonationItemsStep";
+import { PickupJourneyCategoryStep } from "@/components/forms/PickupJourneyCategoryStep";
+import { PickupSimulatedPaymentStep } from "@/components/forms/PickupSimulatedPaymentStep";
 import { Loader2 } from "lucide-react";
 
 export type DonationFormVariant = "default" | "pickupPage";
 
 type DonationFormProps = {
   variant?: DonationFormVariant;
+  initialJourneyType?: DonationJourneyId;
 };
 
 const PICKUP_PRIMARY = "bg-[#9333EA] hover:bg-[#7c3aed]";
 const PICKUP_ACCENT_TEXT = "text-[#9333EA]";
 
-export function DonationForm({ variant = "default" }: DonationFormProps) {
+export function DonationForm({ variant = "default", initialJourneyType }: DonationFormProps) {
   const isPickup = variant === "pickupPage";
-  const flow = useDonationForm({ pickupSplitSteps: isPickup });
+  const flow = useDonationForm({
+    pickupSplitSteps: isPickup,
+    initialJourneyType,
+  });
   const {
     checkoutLoading,
     checkoutError,
@@ -107,340 +114,37 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
   const stepMetaClass = cn("font-semibold", isPickup ? cn("text-xs", PICKUP_ACCENT_TEXT) : "text-sm text-[#a855f7]");
 
   const contactFieldsBlock = (
-    <>
-      <div className={cn("grid gap-4", flow.pickupSplitSteps ? "field-row" : "sm:grid-cols-2")}>
-        <div className={cn("space-y-2", flow.pickupSplitSteps && "field-group")}>
-          <Label htmlFor="firstName" className={fieldLabelClass}>
-            שם פרטי
-            <RequiredFieldStar />
-          </Label>
-          <Input
-            id="firstName"
-            className={cn(inputClassName, flow.pickupSplitSteps && "pickup-native-field")}
-            value={flow.form.firstName}
-            onChange={(e) => flow.updateField("firstName", e.target.value)}
-            placeholder="למשל יעל"
-            autoComplete="given-name"
-          />
-        </div>
-        <div className={cn("space-y-2", flow.pickupSplitSteps && "field-group")}>
-          <Label htmlFor="lastName" className={fieldLabelClass}>
-            שם משפחה
-            <RequiredFieldStar />
-          </Label>
-          <Input
-            id="lastName"
-            className={cn(inputClassName, flow.pickupSplitSteps && "pickup-native-field")}
-            value={flow.form.lastName}
-            onChange={(e) => flow.updateField("lastName", e.target.value)}
-            placeholder="למשל כהן"
-            autoComplete="family-name"
-          />
-        </div>
-      </div>
-      <div className={cn("space-y-2", flow.pickupSplitSteps && "field-group")}>
-        <Label htmlFor="phone" className={fieldLabelClass}>
-          טלפון
-          <RequiredFieldStar />
-        </Label>
-        <Input
-          id="phone"
-          type="tel"
-          dir="ltr"
-          className={cn(
-            inputClassName,
-            flow.pickupSplitSteps ? "pickup-native-field pickup-field-ltr" : "text-end",
-          )}
-          value={flow.form.phone}
-          onChange={(e) => flow.updateField("phone", e.target.value)}
-          placeholder="0500000000"
-          autoComplete="tel"
-        />
-      </div>
-      <div className={cn("space-y-2", flow.pickupSplitSteps && "field-group")}>
-        <Label htmlFor="email" className={fieldLabelClass}>
-          מייל
-          <RequiredFieldStar />
-        </Label>
-        <Input
-          id="email"
-          type="email"
-          dir="ltr"
-          className={cn(
-            inputClassName,
-            flow.pickupSplitSteps ? "pickup-native-field pickup-field-ltr" : "text-end",
-          )}
-          value={flow.form.email}
-          onChange={(e) => flow.updateField("email", e.target.value)}
-          placeholder="הזינו כתובת מייל פעילה"
-          autoComplete="email"
-        />
-        <p className={sectionSubClass}>עדכונים על האיסוף והתשלום בלבד ללא דיוור פרסומי</p>
-      </div>
-
-      <div className={cn("space-y-2", flow.pickupSplitSteps && "field-group")}>
-        <Label htmlFor="streetName" className={fieldLabelClass}>
-          שם רחוב
-          <RequiredFieldStar />
-        </Label>
-        <Input
-          id="streetName"
-          className={cn(inputClassName, flow.pickupSplitSteps && "pickup-native-field")}
-          value={flow.form.streetName}
-          onChange={(e) => flow.updateField("streetName", e.target.value)}
-          placeholder="למשל רחוב הרצל"
-          autoComplete="street-address"
-        />
-      </div>
-      <div className={cn("grid gap-4", flow.pickupSplitSteps ? "field-row" : "sm:grid-cols-2")}>
-        <div className={cn("space-y-2", flow.pickupSplitSteps && "field-group")}>
-          <Label htmlFor="houseNumber" className={fieldLabelClass}>
-            מספר בית
-            <RequiredFieldStar />
-          </Label>
-          <Input
-            id="houseNumber"
-            className={cn(
-              inputClassName,
-              flow.pickupSplitSteps && "pickup-native-field pickup-field-ltr",
-            )}
-            dir="ltr"
-            value={flow.form.houseNumber}
-            onChange={(e) => flow.updateField("houseNumber", e.target.value)}
-            placeholder="למשל 12"
-            autoComplete="off"
-          />
-        </div>
-        <div className={cn("space-y-2", flow.pickupSplitSteps && "field-group")}>
-          <Label htmlFor="apartmentNumber" className={fieldLabelClass}>
-            מספר דירה
-          </Label>
-          <Input
-            id="apartmentNumber"
-            className={cn(
-              inputClassName,
-              flow.pickupSplitSteps && "pickup-native-field pickup-field-ltr",
-            )}
-            dir="ltr"
-            value={flow.form.apartmentNumber}
-            onChange={(e) => flow.updateField("apartmentNumber", e.target.value)}
-            placeholder="למשל 4"
-            autoComplete="off"
-          />
-        </div>
-      </div>
-      <div className={cn("grid gap-4", flow.pickupSplitSteps ? "field-row" : "sm:grid-cols-2")}>
-        <div className={cn("space-y-2", flow.pickupSplitSteps && "field-group")}>
-          <Label htmlFor="floor" className={fieldLabelClass}>
-            קומה
-          </Label>
-          <Input
-            id="floor"
-            className={cn(
-              inputClassName,
-              flow.pickupSplitSteps && "pickup-native-field pickup-field-ltr",
-            )}
-            dir="ltr"
-            value={flow.form.floor}
-            onChange={(e) => flow.updateField("floor", e.target.value)}
-            placeholder="למשל 2"
-            autoComplete="off"
-          />
-        </div>
-        <div className={cn("space-y-2", flow.pickupSplitSteps && "field-group")}>
-          <Label htmlFor="doorCode" className={fieldLabelClass}>
-            קוד כניסה
-          </Label>
-          <Input
-            id="doorCode"
-            className={cn(
-              inputClassName,
-              flow.pickupSplitSteps && "pickup-native-field pickup-field-ltr",
-            )}
-            dir="ltr"
-            value={flow.form.doorCode}
-            onChange={(e) => flow.updateField("doorCode", e.target.value)}
-          placeholder="למשל #1234"
-          autoComplete="off"
-        />
-      </div>
-    </div>
-      <div className={cn("space-y-2", flow.pickupSplitSteps && "field-group")}>
-        <Label htmlFor="addressNotes" className={fieldLabelClass}>
-          הערות נוספות לכתובת
-        </Label>
-        <Textarea
-          id="addressNotes"
-          className={cn(textareaClassName, flow.pickupSplitSteps && "pickup-native-field")}
-          value={flow.form.addressNotes}
-          onChange={(e) => flow.updateField("addressNotes", e.target.value)}
-          placeholder="חניה הוראות הגעה פרטים נוספים לצוות האיסוף"
-          rows={isPickup ? 4 : 3}
-        />
-      </div>
-    </>
+    <DonationFormContactFields
+      form={flow.form}
+      pickupSplitSteps={flow.pickupSplitSteps}
+      fieldLabelClass={fieldLabelClass}
+      sectionSubClass={sectionSubClass}
+      inputClassName={cn(inputClassName, flow.pickupSplitSteps && "pickup-native-field")}
+      textareaClassName={textareaClassName}
+      isPickup={isPickup}
+      updateField={flow.updateField}
+    />
   );
 
   const regionSlotBlock = (
-    <>
-      {flow.pickupSplitSteps ? (
-        <ShippingPickers form={flow.form} updateField={flow.updateField} slots={slots} />
-      ) : (
-        <>
-          <div className="space-y-2">
-            <label htmlFor="region" className={fieldLabelClass}>
-              אזור איסוף
-              <RequiredFieldStar />
-            </label>
-            <select
-              id="region"
-              className={selectClassName}
-              value={flow.form.region}
-              onChange={(e) => flow.updateField("region", e.target.value)}
-            >
-              <option value="">בחרו מהרשימה</option>
-              {PICKUP_REGIONS.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="pickupSlot" className={fieldLabelClass}>
-              זמן לאיסוף
-              <RequiredFieldStar />
-            </label>
-            <select
-              id="pickupSlot"
-              className={selectClassName}
-              value={flow.form.pickupSlotId ?? ""}
-              disabled={!flow.form.region}
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (raw === "") {
-                  flow.updateField("pickupSlotId", null);
-                  flow.updateField("pickupDate", "");
-                  return;
-                }
-                const p = getPickupMonThuForWeekOffset(0);
-                const tail = raw.split("_").pop();
-                const dateIso =
-                  tail === "mon_1214" ? p.mon.iso : tail === "thu_1214" ? p.thu.iso : "";
-                if (dateIso) applyPickupDateTime(dateIso, raw, flow.updateField);
-                else flow.updateField("pickupSlotId", raw);
-              }}
-            >
-              <option value="">
-                {flow.form.region ? "בחרו יום ושעת איסוף" : "קודם יש לבחור אזור איסוף"}
-              </option>
-              {slots.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            <p className={sectionSubClass}>לפי האזור נפתחים חלונות הזמן הרלוונטיים בלבד</p>
-          </div>
-        </>
-      )}
-      <PickupDoorNotice className={flow.pickupSplitSteps ? "mt-1" : undefined} />
-    </>
+    <DonationFormRegionSlotFields
+      form={flow.form}
+      pickupSplitSteps={flow.pickupSplitSteps}
+      fieldLabelClass={fieldLabelClass}
+      sectionSubClass={sectionSubClass}
+      selectClassName={flow.pickupSplitSteps ? pickupNativeSelect : selectClassName}
+      slots={slots}
+      updateField={flow.updateField}
+    />
   );
 
   const summaryCheckboxes = (
-    <>
-      <label
-        className={cn(
-          "flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 ps-4 pe-4 transition-colors hover:border-violet-200",
-          flow.pickupSplitSteps && "rounded-[var(--radius-xs)] border-[#E5E7EB]",
-          !flow.pickupSplitSteps && isPickup && "min-h-[52px] rounded-3xl p-5",
-        )}
-      >
-        <input
-          type="checkbox"
-          className="mt-1 size-5 shrink-0 rounded border-slate-300 text-[#9333EA] accent-[#9333EA]"
-          checked={flow.form.toysQualityConfirmed}
-          onChange={(e) => flow.updateField("toysQualityConfirmed", e.target.checked)}
-        />
-        <span
-          className={cn(
-            "text-start text-sm leading-relaxed text-slate-800",
-            flow.pickupSplitSteps && "text-[0.85rem]",
-            !flow.pickupSplitSteps && isPickup && "text-xs",
-          )}
-        >
-          <RequiredFieldStar className="me-1 ms-0 inline" />
-          מאשרים או מאשרות שהפריטים תקינים, נקיים ולא שבורים
-        </span>
-      </label>
-      <label
-        className={cn(
-          "flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 ps-4 pe-4 transition-colors hover:border-violet-200",
-          flow.pickupSplitSteps && "rounded-[var(--radius-xs)] border-[#E5E7EB]",
-          !flow.pickupSplitSteps && isPickup && "min-h-[52px] rounded-3xl p-5",
-        )}
-      >
-        <input
-          type="checkbox"
-          className="mt-1 size-5 shrink-0 rounded border-slate-300 text-[#9333EA] accent-[#9333EA]"
-          checked={flow.form.termsAccepted}
-          onChange={(e) => flow.updateField("termsAccepted", e.target.checked)}
-        />
-        <span
-          className={cn(
-            "text-start text-sm leading-relaxed text-slate-800",
-            flow.pickupSplitSteps && "text-[0.85rem]",
-            !flow.pickupSplitSteps && isPickup && "text-xs",
-          )}
-        >
-          <RequiredFieldStar className="me-1 ms-0 inline" />
-          מאשרים כי קראנו והסכמנו ל
-          <Link
-            href="/terms"
-            className="mx-1 font-semibold text-[#9333EA] underline-offset-2 hover:underline"
-          >
-            תנאי השירות
-          </Link>
-          של האתר
-        </span>
-      </label>
-    </>
-  );
-
-  const paymentExtrasBlock = (
-    <>
-      <ul className="space-y-2 text-xs text-slate-600 sm:text-sm">
-        <li className="flex gap-2">
-          <span className="text-[#9333EA]" aria-hidden>
-            ✓
-          </span>
-          <span>שינוע ואיסוף עד הכתובת שבחרתם בחלון שקבעתם</span>
-        </li>
-        <li className="flex gap-2">
-          <span className="text-[#9333EA]" aria-hidden>
-            ✓
-          </span>
-          <span>מכתב AI או תעודת גאווה — לפי המסלול שבחרתם</span>
-        </li>
-        <li className="flex gap-2">
-          <span className="text-[#9333EA]" aria-hidden>
-            ✓
-          </span>
-          <span>סליקה בטוחה ואיסוף — ניצור איתכן קשר בקרוב</span>
-        </li>
-      </ul>
-      {checkoutError ? (
-        <p
-          className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {checkoutError}
-        </p>
-      ) : null}
-    </>
+    <DonationFormAgreementBlocks
+      form={flow.form}
+      pickupSplitSteps={flow.pickupSplitSteps}
+      isPickup={isPickup}
+      updateField={flow.updateField}
+    />
   );
 
   const onStartNewDonationForm = () => {
@@ -449,7 +153,10 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
   };
 
   const pickupNextLabel =
-    flow.pickupSplitSteps && flow.stepIndex === 4 ? "לשמירת הבקשה ←" : "המשך ←";
+    flow.pickupSplitSteps && flow.stepIndex === 4 ? "מעבר לתשלום ←" : "המשך ←";
+
+  const defaultFlowNextLabel =
+    !flow.pickupSplitSteps && flow.stepIndex === 3 ? "מעבר לתשלום" : "המשך";
 
   if (flow.pickupSplitSteps) {
     const stepHeadline: Record<number, { title: string; desc: string }> = {
@@ -467,23 +174,23 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
       },
       3: {
         title: "מה נוסף באיסוף?",
-        desc: "שם הילד או הילדה ופרטים על כל פריט לפי המסלול שבחרתם — זה עוזר לנו לסדר את האיסוף ואת המכתב",
+        desc: "ממלאים לפי המסלול שבחרתם — צעצועים עם שם לכל פריט, או פרטי גמילה — כדי שנסדר את האיסוף ואת המכתב",
       },
       4: {
         title: "סיכום הבקשה",
-        desc: "עוברים על הכל יחד, מאשרים את מצב הפריטים ואת תנאי השירות — ואז שומרים את הבקשה",
+        desc: "עוברים על הכל יחד, מאשרים את מצב הפריטים ואת תנאי השירות — ובשלב הבא מסך תשלום בהדמה עד לחיבור חברת סליקה",
       },
       5: {
         title: checkoutSuccess
           ? "יאס! נשמר בסטייל"
           : checkoutLoading
             ? "רגע קטן, שומרים…"
-            : "מוכנות לסגור פינה?",
+            : "תשלום (הדמה)",
         desc: checkoutSuccess
           ? "הכל אצלנו — עכשיו רק להתרווח ולחכות לשיחה החמה שלנו."
           : checkoutLoading
             ? "שולחות את הפרטים לשרת — עוד רגע זה שם."
-            : "לוחצות ואנחנו כבר על זה — בלי סטריפ, בלי סיבוך.",
+            : "כאן תופיע סליקה אמיתית. כרגע אפשר ללחוץ למטה כדי לשמור את הבקשה במסד הנתונים כמו שצריך",
       },
     };
 
@@ -516,31 +223,7 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
               <p className="pickup-step-desc">{meta.desc}</p>
 
               {flow.stepIndex === 0 ? (
-                <>
-                  <p className="cat-fields-title">
-                    בוחרים קטגוריה אחת
-                    <RequiredFieldStar />
-                  </p>
-                  <div className="cat-grid">
-                  {DONATION_JOURNEY_OPTIONS.map((opt) => {
-                    const selected = flow.form.journeyType === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        className={cn("cat-btn", selected && "selected")}
-                        aria-pressed={selected}
-                        onClick={() => flow.updateField("journeyType", opt.id)}
-                      >
-                        <span className="cat-icon" aria-hidden>
-                          {DONATION_JOURNEY_EMOJI[opt.id]}
-                        </span>
-                        <span className="cat-label">{opt.label}</span>
-                      </button>
-                    );
-                  })}
-                  </div>
-                </>
+                <PickupJourneyCategoryStep form={flow.form} updateField={flow.updateField} />
               ) : null}
 
               {flow.stepIndex === 1 ? <div className="space-y-4">{regionSlotBlock}</div> : null}
@@ -548,20 +231,15 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
               {flow.stepIndex === 2 ? <div className="space-y-4">{contactFieldsBlock}</div> : null}
 
               {flow.stepIndex === 3 ? (
-                <DonationFormToyStep
-                  journeyType={flow.form.journeyType}
-                  childName={flow.form.childName}
-                  onChildNameChange={(value) => flow.updateField("childName", value)}
-                  toyItems={flow.form.toyItems}
-                  isPickup={isPickup}
-                  claudeChrome
-                  showRequiredStars
+                <PickupDonationItemsStep
+                  form={flow.form}
                   fieldLabelClass={fieldLabelClass}
                   sectionSubClass={sectionSubClass}
                   inputClassName={cn(inputClassName)}
-                  onUpdateToy={flow.updateToyItem}
-                  onAddToy={flow.addToyItem}
-                  onRemoveToy={flow.removeToyItem}
+                  updateField={flow.updateField}
+                  updateToyItem={flow.updateToyItem}
+                  addToyItem={flow.addToyItem}
+                  removeToyItem={flow.removeToyItem}
                 />
               ) : null}
 
@@ -580,24 +258,17 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
               {flow.stepIndex === 5 ? (
                 checkoutSuccess ? (
                   <DonationCheckoutSuccessPanel
-                    childName={flow.form.childName}
+                    childName={displayPrimaryChildName(flow.form)}
                     referenceId={checkoutSuccess.id}
                   />
                 ) : checkoutLoading ? (
                   <DonationCheckoutLoadingPanel />
                 ) : (
-                  <div className="payment-box checkout-brand-surface space-y-4">
-                    <div className="payment-amount">
-                      <span className="pay-label">{PICKUP_FEE_LABEL}</span>
-                      <span className="pay-price" dir="ltr">
-                        ₪{PICKUP_FEE_ILS}
-                      </span>
-                    </div>
-                    {paymentExtrasBlock}
-                    <p className="secure-badge">
-                      הכל נשמר אצלנו בצורה מאובטחת. אחרי זה — סליקה בטוחה, בלי הפתעות.
-                    </p>
-                  </div>
+                  <PickupSimulatedPaymentStep
+                    feeLabel={PICKUP_FEE_LABEL}
+                    feeIls={PICKUP_FEE_ILS}
+                    checkoutError={checkoutError}
+                  />
                 )
               ) : null}
             </section>
@@ -627,12 +298,12 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
                   {checkoutLoading ? (
                     <span className="inline-flex items-center justify-center gap-2">
                       <Loader2 className="size-5 shrink-0 animate-spin" strokeWidth={2.25} aria-hidden />
-                      שומרים בשבילכן…
+                      שומרים במערכת…
                     </span>
                   ) : (
-                    <span className="inline-flex items-center justify-center gap-1.5">
+                    <span className="inline-flex items-center justify-center gap-1.5 text-center leading-snug">
                       <span aria-hidden>✨</span>
-                      סוגרות פינה בסטייל — ₪{PICKUP_FEE_ILS}
+                      לאשר תשלום בהדמה ולשמור במערכת — ₪{PICKUP_FEE_ILS}
                     </span>
                   )}
                 </button>
@@ -688,7 +359,7 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
           <>
             <CardTitle className={cardTitleClass}>פרטי הפריטים</CardTitle>
             <CardDescription className={cardDescClass}>
-              נא למלא את שם הילד או הילדה ופרטים לכל פריט לפי המסלול שבחרתם, ואישור האיכות בשלב הסיכום
+              נא למלא את הפרטים לפי המסלול שבחרתם — צעצועים או מוצץ או בקבוק ופורמולה או חיתולים — ואישור האיכות בשלב הסיכום
             </CardDescription>
           </>
         ) : null}
@@ -697,7 +368,7 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
           <>
             <CardTitle className={cardTitleClass}>סיכום</CardTitle>
             <CardDescription className={cardDescClass}>
-              {`נא לעבור על הפרטים, לאשר את מצב הפריטים ואת תנאי השירות — ובשלב הבא נשמור את הבקשה (${PICKUP_FEE_LABEL}) ונמשיך לסליקה בטוחה.`}
+              {`נא לעבור על הפרטים, לאשר את מצב הפריטים ואת תנאי השירות — ובשלב הבא מסך תשלום בהדמה (${PICKUP_FEE_LABEL}) ושמירה במערכת`}
             </CardDescription>
           </>
         ) : null}
@@ -709,14 +380,14 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
                 ? "יאס! נשמר בסטייל"
                 : checkoutLoading
                   ? "רגע קטן, שומרים…"
-                  : "סוגרות את זה?"}
+                  : "תשלום (הדמה)"}
             </CardTitle>
             <CardDescription className={cardDescClass}>
               {checkoutSuccess
                 ? "הפרטים אצלנו — ניצור קשר לסליקה בטוחה ואיסוף, בלי לחץ."
                 : checkoutLoading
                   ? "שולחות את הפרטים לשרת — עוד רגע."
-                  : `${PICKUP_FEE_LABEL} — שומרים את הבקשה, ואז נמשיך לסליקה בטוחה.`}
+                  : `${PICKUP_FEE_LABEL} — מסך הדמה לסליקה, ובלחיצה נשמרת הבקשה במערכת עם סטטוס ממתין לתשלום`}
             </CardDescription>
           </>
         ) : null}
@@ -760,19 +431,16 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
         {flow.stepIndex === 1 ? <div className="space-y-4">{contactFieldsBlock}</div> : null}
 
         {flow.stepIndex === 2 ? (
-          <DonationFormToyStep
-            journeyType={flow.form.journeyType}
-            childName={flow.form.childName}
-            onChildNameChange={(value) => flow.updateField("childName", value)}
-            toyItems={flow.form.toyItems}
+          <DonationFormJourneyFields
+            form={flow.form}
             isPickup={isPickup}
-            showRequiredStars
             fieldLabelClass={fieldLabelClass}
             sectionSubClass={sectionSubClass}
             inputClassName={cn(inputClassName)}
-            onUpdateToy={flow.updateToyItem}
-            onAddToy={flow.addToyItem}
-            onRemoveToy={flow.removeToyItem}
+            updateField={flow.updateField}
+            updateToyItem={flow.updateToyItem}
+            addToyItem={flow.addToyItem}
+            removeToyItem={flow.removeToyItem}
           />
         ) : null}
 
@@ -790,18 +458,17 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
         {flow.stepIndex === 4 ? (
           checkoutSuccess ? (
             <DonationCheckoutSuccessPanel
-              childName={flow.form.childName}
+              childName={displayPrimaryChildName(flow.form)}
               referenceId={checkoutSuccess.id}
             />
           ) : checkoutLoading ? (
             <DonationCheckoutLoadingPanel />
           ) : (
-            <div className="space-y-4 rounded-2xl border border-[#9333EA]/20 bg-[#F9F5FF] p-5 ps-5 pe-5 shadow-inner">
-              <p className={cn("font-semibold text-slate-900", isPickup ? "text-base" : "text-lg")}>
-                {PICKUP_FEE_LABEL}
-              </p>
-              {paymentExtrasBlock}
-            </div>
+            <PickupSimulatedPaymentStep
+              feeLabel={PICKUP_FEE_LABEL}
+              feeIls={PICKUP_FEE_ILS}
+              checkoutError={checkoutError}
+            />
           )
         ) : null}
       </CardContent>
@@ -843,12 +510,12 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
               {checkoutLoading ? (
                 <>
                   <Loader2 className="size-4 shrink-0 animate-spin" strokeWidth={2.25} aria-hidden />
-                  שומרים בשבילכן…
+                  שומרים במערכת…
                 </>
               ) : (
                 <>
                   <span aria-hidden>✨</span>
-                  סוגרות פינה בסטייל — ₪{PICKUP_FEE_ILS}
+                  לאשר תשלום בהדמה ולשמור במערכת — ₪{PICKUP_FEE_ILS}
                 </>
               )}
             </Button>
@@ -864,7 +531,7 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
             disabled={!okNext}
             onClick={flow.goNext}
           >
-            המשך
+            {defaultFlowNextLabel}
           </Button>
         )}
       </CardFooter>

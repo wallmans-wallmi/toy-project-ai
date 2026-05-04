@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DonationJourneyId } from "@/lib/donation-journey";
+import { isDonationJourneyId } from "@/lib/donation-journey";
 import { createEmptyToyItem, type ToyItemRow } from "@/lib/toy-donation";
 
-/** תצוגת ברירת מחדל (דף שירותים וכו') */
 export const DONATION_STEP_LABELS = [
   "מיקום וזמן איסוף",
   "פרטי קשר וכתובת",
@@ -13,7 +13,6 @@ export const DONATION_STEP_LABELS = [
   "תשלום",
 ] as const;
 
-/** תיאום איסוף בעיצוב v2: קטגוריה ואז אזור וזמן */
 export const DONATION_PICKUP_SPLIT_STEP_LABELS = [
   "ממה נפרדים?",
   "איזור וזמן איסוף",
@@ -35,23 +34,28 @@ export type DonationFormState = {
   doorCode: string;
   addressNotes: string;
   journeyType: DonationJourneyId | "";
-  /** עיר שנבחרה ממגירת הערים (תצוגה וסיכום) */
   pickupCity: string;
   region: string;
   toyItems: ToyItemRow[];
   toysQualityConfirmed: boolean;
   childName: string;
   pickupSlotId: string | null;
-  /** YYYY-MM-DD — תאריך מועדף לאיסוף (זרימת pickup עם מגירות) */
   pickupDate: string;
   termsAccepted: boolean;
+  pacifierQuantity: string;
+  bottleSubChoice: "" | "bottles" | "formula";
+  diaperPackageType: "" | "closed" | "loose" | "both";
 };
 
-type UseDonationFormOpts = {
+export type UseDonationFormOpts = {
   pickupSplitSteps?: boolean;
+  /** מ־URL (?journey=) או מהורה הבית */
+  initialJourneyType?: DonationJourneyId;
 };
 
-function initialFormState(): DonationFormState {
+function initialFormState(initialJourney?: DonationJourneyId): DonationFormState {
+  const j =
+    initialJourney && isDonationJourneyId(initialJourney) ? initialJourney : ("" as const);
   return {
     firstName: "",
     lastName: "",
@@ -63,7 +67,7 @@ function initialFormState(): DonationFormState {
     floor: "",
     doorCode: "",
     addressNotes: "",
-    journeyType: "",
+    journeyType: j,
     pickupCity: "",
     region: "",
     toyItems: [createEmptyToyItem()],
@@ -72,6 +76,9 @@ function initialFormState(): DonationFormState {
     pickupSlotId: null,
     pickupDate: "",
     termsAccepted: false,
+    pacifierQuantity: "",
+    bottleSubChoice: "",
+    diaperPackageType: "",
   };
 }
 
@@ -81,13 +88,31 @@ export function useDonationForm(opts?: UseDonationFormOpts) {
   const stepCount = stepLabels.length;
 
   const [stepIndex, setStepIndex] = useState(0);
-  /** השלב הרחוק ביותר שהמשתמש הגיע אליו — מאפשר קפיצה חוזרת לשלבים שמולאו */
   const [maxStepReached, setMaxStepReached] = useState(0);
-  const [form, setForm] = useState<DonationFormState>(initialFormState());
+  const [form, setForm] = useState(() => initialFormState(opts?.initialJourneyType));
 
   useEffect(() => {
     setMaxStepReached((m) => Math.max(m, stepIndex));
   }, [stepIndex]);
+
+  /** סנכרון מסלול מ־URL (?journey=) אחרי טעינה / ניווט */
+  useEffect(() => {
+    const j = opts?.initialJourneyType;
+    if (!j || !isDonationJourneyId(j)) return;
+    setForm((prev) => {
+      if (prev.journeyType === j) return prev;
+      return {
+        ...prev,
+        journeyType: j,
+        childName: "",
+        pacifierQuantity: "",
+        bottleSubChoice: "",
+        diaperPackageType: "",
+        toyItems: [createEmptyToyItem()],
+        toysQualityConfirmed: false,
+      };
+    });
+  }, [opts?.initialJourneyType]);
 
   const stepTitle = useMemo(
     () => `שלב ${stepIndex + 1}: ${stepLabels[stepIndex]}`,
@@ -116,6 +141,19 @@ export function useDonationForm(opts?: UseDonationFormOpts) {
     value: DonationFormState[K],
   ) => {
     setForm((prev) => {
+      if (key === "journeyType") {
+        const v = value as DonationFormState["journeyType"];
+        return {
+          ...prev,
+          journeyType: v,
+          childName: "",
+          pacifierQuantity: "",
+          bottleSubChoice: "",
+          diaperPackageType: "",
+          toyItems: [createEmptyToyItem()],
+          toysQualityConfirmed: false,
+        };
+      }
       const next = { ...prev, [key]: value };
       if (key === "region") {
         next.pickupSlotId = null;
@@ -149,8 +187,8 @@ export function useDonationForm(opts?: UseDonationFormOpts) {
   const resetFlow = useCallback(() => {
     setStepIndex(0);
     setMaxStepReached(0);
-    setForm(initialFormState());
-  }, []);
+    setForm(initialFormState(opts?.initialJourneyType));
+  }, [opts?.initialJourneyType]);
 
   const isSummaryStep = pickupSplitSteps ? stepIndex === 4 : stepIndex === 3;
   const isPaymentStep = pickupSplitSteps ? stepIndex === 5 : stepIndex === 4;
