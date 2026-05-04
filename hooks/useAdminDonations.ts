@@ -9,9 +9,13 @@ export type AdminDonationPatch = {
   pickup_date?: string | null;
   pickup_time?: string | null;
   pickup_address?: string | null;
+  /** מיפוי ל־`pickup_address` בשרת */
+  pickup_location?: string | null;
   pickup_status?: string;
   delivery_status?: string;
   target_ngo_name?: string | null;
+  /** מיפוי ל־`target_ngo_name` בשרת */
+  ngo_name?: string | null;
   target_ngo_city?: string | null;
   delivery_time?: string | null;
 };
@@ -40,12 +44,27 @@ export type AdminDonationRow = {
   pickup_date: string | null;
   pickup_time: string | null;
   pickup_address: string | null;
+  /** כתובת/מיקום איסוף לתצוגה — מחושב מ־pickup_address או address */
+  pickup_location: string | null;
   pickup_status: string | null;
   delivery_status: string | null;
   target_ngo_name: string | null;
+  /** שם עמותה לתצוגה — מחושב מ־target_ngo_name */
+  ngo_name: string | null;
   target_ngo_city: string | null;
   delivery_time: string | null;
 };
+
+/** שורה מה־API לפני נרמול (ללא שדות מחושבים) */
+export type AdminDonationApiRow = Omit<AdminDonationRow, "pickup_location" | "ngo_name"> &
+  Partial<Pick<AdminDonationRow, "pickup_location" | "ngo_name">>;
+
+/** מנרמל שורה מה־API כולל `pickup_location` ו־`ngo_name` לתצוגה */
+export function normalizeAdminDonationRow(raw: AdminDonationApiRow): AdminDonationRow {
+  const pickup_location = raw.pickup_address ?? raw.address ?? null;
+  const ngo_name = raw.target_ngo_name ?? null;
+  return { ...raw, pickup_location, ngo_name };
+}
 
 export function formatToyItemsLine(row: AdminDonationRow): string {
   return formatToyItemsForAdmin(row.toy_items);
@@ -70,9 +89,11 @@ export function exportDonationsToCsv(rows: AdminDonationRow[]): void {
     "amount_paid",
     "pickup_date",
     "pickup_time",
+    "pickup_location",
     "pickup_address",
     "pickup_status",
     "delivery_status",
+    "ngo_name",
     "target_ngo_name",
     "target_ngo_city",
     "delivery_time",
@@ -100,9 +121,11 @@ export function exportDonationsToCsv(rows: AdminDonationRow[]): void {
         String(r.amount_paid ?? 0),
         r.pickup_date ?? "",
         r.pickup_time ?? "",
+        r.pickup_location ?? "",
         r.pickup_address ?? "",
         r.pickup_status ?? "",
         r.delivery_status ?? "",
+        r.ngo_name ?? "",
         r.target_ngo_name ?? "",
         r.target_ngo_city ?? "",
         r.delivery_time ?? "",
@@ -118,6 +141,14 @@ export function exportDonationsToCsv(rows: AdminDonationRow[]): void {
   a.download = `donations-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function patchToApiBody(id: string, patch: AdminDonationPatch): Record<string, unknown> {
+  const { pickup_location, ngo_name, ...rest } = patch;
+  const body: Record<string, unknown> = { id, ...rest };
+  if (pickup_location !== undefined) body.pickup_address = pickup_location;
+  if (ngo_name !== undefined) body.target_ngo_name = ngo_name;
+  return body;
 }
 
 export function useAdminDonations() {
@@ -136,14 +167,15 @@ export function useAdminDonations() {
         setRows([]);
         return;
       }
-      const data = (await res.json()) as { donations?: AdminDonationRow[]; error?: string };
+      const data = (await res.json()) as { donations?: AdminDonationApiRow[]; error?: string };
       if (!res.ok) {
         setError(data.error ?? "שגיאה בטעינה");
         setRows([]);
         return;
       }
       setNeedLogin(false);
-      setRows(Array.isArray(data.donations) ? data.donations : []);
+      const list = Array.isArray(data.donations) ? data.donations : [];
+      setRows(list.map((r) => normalizeAdminDonationRow(r)));
     } catch {
       setError("בעיית רשת");
       setRows([]);
@@ -185,7 +217,7 @@ export function useAdminDonations() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ id, ...patch }),
+      body: JSON.stringify(patchToApiBody(id, patch)),
     });
     const data = (await res.json()) as { error?: string };
     if (!res.ok) {
