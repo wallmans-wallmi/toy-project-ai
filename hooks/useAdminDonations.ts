@@ -3,6 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatToyItemsForAdmin } from "@/lib/admin-donation-display";
 
+export type AdminDonationPatch = {
+  payment_status?: string;
+  letter_status?: string;
+  pickup_date?: string | null;
+  pickup_time?: string | null;
+  pickup_address?: string | null;
+  pickup_status?: string;
+  delivery_status?: string;
+  target_ngo_name?: string | null;
+  target_ngo_city?: string | null;
+  delivery_time?: string | null;
+};
+
 export type AdminDonationRow = {
   id: string;
   created_at: string;
@@ -24,6 +37,14 @@ export type AdminDonationRow = {
   amount_paid: number | null;
   pickup_notes: string | null;
   door_code: string | null;
+  pickup_date: string | null;
+  pickup_time: string | null;
+  pickup_address: string | null;
+  pickup_status: string | null;
+  delivery_status: string | null;
+  target_ngo_name: string | null;
+  target_ngo_city: string | null;
+  delivery_time: string | null;
 };
 
 export function formatToyItemsLine(row: AdminDonationRow): string {
@@ -47,6 +68,14 @@ export function exportDonationsToCsv(rows: AdminDonationRow[]): void {
     "scheduled_slot",
     "pickup_city",
     "amount_paid",
+    "pickup_date",
+    "pickup_time",
+    "pickup_address",
+    "pickup_status",
+    "delivery_status",
+    "target_ngo_name",
+    "target_ngo_city",
+    "delivery_time",
   ];
   const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
   const lines = [headers.join(",")];
@@ -69,6 +98,14 @@ export function exportDonationsToCsv(rows: AdminDonationRow[]): void {
         r.scheduled_slot ?? "",
         r.pickup_city ?? "",
         String(r.amount_paid ?? 0),
+        r.pickup_date ?? "",
+        r.pickup_time ?? "",
+        r.pickup_address ?? "",
+        r.pickup_status ?? "",
+        r.delivery_status ?? "",
+        r.target_ngo_name ?? "",
+        r.target_ngo_city ?? "",
+        r.delivery_time ?? "",
       ]
         .map((c) => escape(String(c)))
         .join(","),
@@ -115,12 +152,16 @@ export function useAdminDonations() {
     }
   }, []);
 
-  const login = useCallback(async (password: string) => {
+  const login = useCallback(async (password: string, email?: string) => {
     setError(null);
+    const body =
+      email !== undefined && email.trim() !== ""
+        ? { email: email.trim(), password }
+        : { password };
     const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify(body),
       credentials: "include",
     });
     const data = (await res.json()) as { error?: string };
@@ -138,25 +179,22 @@ export function useAdminDonations() {
     setRows([]);
   }, []);
 
-  const updateDonation = useCallback(
-    async (id: string, patch: { payment_status?: string; letter_status?: string }) => {
-      setError(null);
-      const res = await fetch("/api/admin/update-donation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ id, ...patch }),
-      });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        setError(data.error ?? "העדכון נכשל");
-        return false;
-      }
-      await refresh();
-      return true;
-    },
-    [refresh],
-  );
+  const updateDonation = useCallback(async (id: string, patch: AdminDonationPatch) => {
+    setError(null);
+    const res = await fetch("/api/admin/update-donation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ id, ...patch }),
+    });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "העדכון נכשל");
+      return false;
+    }
+    await refresh();
+    return true;
+  }, [refresh]);
 
   const exportCsv = useCallback(() => {
     exportDonationsToCsv(rows);

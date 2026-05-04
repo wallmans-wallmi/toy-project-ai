@@ -5,28 +5,52 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { Eye, EyeOff } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 type AdminLoginPanelProps = {
-  onLogin: (password: string) => Promise<boolean>;
+  onLogin: (password: string, email?: string) => Promise<boolean>;
   error: string | null;
 };
 
 export function AdminLoginPanel({ onLogin, error }: AdminLoginPanelProps) {
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [requiresEmail, setRequiresEmail] = useState<boolean | null>(null);
   const pwId = useId();
+  const emailId = useId();
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/auth-config");
+        const data = (await res.json()) as { requiresEmail?: boolean };
+        if (!cancelled) setRequiresEmail(Boolean(data.requiresEmail));
+      } catch {
+        if (!cancelled) setRequiresEmail(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      await onLogin(password);
+      const emailArg = requiresEmail ? email.trim() : email.trim() || undefined;
+      await onLogin(password, emailArg);
     } finally {
       setBusy(false);
     }
   }
+
+  const showEmailField = requiresEmail === true;
+  const canSubmit =
+    password.trim() !== "" && (requiresEmail !== true || email.trim() !== "") && requiresEmail !== null;
 
   return (
     <form
@@ -36,12 +60,32 @@ export function AdminLoginPanel({ onLogin, error }: AdminLoginPanelProps) {
       lang="he"
     >
       <h2 className="text-[16px] font-bold text-slate-900">כניסה לאזור ניהול</h2>
-      <p className="mt-1 text-[12px] text-slate-600">הזינו את סיסמת האדמין שהוגדרה בשרת</p>
-      <div className="mt-4 space-y-2">
-        <Label htmlFor={pwId} className="text-[12px] font-semibold text-slate-700">
-          סיסמה
-        </Label>
-        {/* שדה משתמש נסתר — מרגיע אזהרות DOM/מנהלי סיסמאות על טופס ללא username */}
+      <p className="mt-1 text-[12px] text-slate-600">
+        {showEmailField
+          ? "הזינו את האימייל והסיסמה שהוגדרו לכם בצוות"
+          : "הזינו את סיסמת הניהול — אם עברתם למשתמשים בטבלה, תופיע כאן גם שורת אימייל"}
+      </p>
+
+      {requiresEmail === null ? (
+        <p className="mt-4 text-center text-[12px] text-slate-500">בודקים את מצב ההתחברות…</p>
+      ) : null}
+
+      {showEmailField ? (
+        <div className="mt-4 space-y-2">
+          <Label htmlFor={emailId} className="text-[12px] font-semibold text-slate-700">
+            אימייל
+          </Label>
+          <Input
+            id={emailId}
+            type="email"
+            autoComplete="username"
+            className="h-11 rounded-xl border-slate-200"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+      ) : requiresEmail === false ? (
         <input
           type="text"
           name="username"
@@ -52,6 +96,12 @@ export function AdminLoginPanel({ onLogin, error }: AdminLoginPanelProps) {
           className="sr-only"
           aria-hidden="true"
         />
+      ) : null}
+
+      <div className="mt-4 space-y-2">
+        <Label htmlFor={pwId} className="text-[12px] font-semibold text-slate-700">
+          סיסמה
+        </Label>
         <div className="relative">
           <Input
             id={pwId}
@@ -83,7 +133,7 @@ export function AdminLoginPanel({ onLogin, error }: AdminLoginPanelProps) {
       ) : null}
       <Button
         type="submit"
-        disabled={busy || !password.trim()}
+        disabled={busy || !canSubmit}
         className="mt-5 w-full rounded-xl bg-[#9333EA] text-[14px] font-bold text-white hover:bg-[#7c3aed]"
       >
         {busy ? "מתחברים…" : "כניסה"}

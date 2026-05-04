@@ -6,14 +6,15 @@ import { DonationTable } from "@/components/admin/DonationTable";
 import type { AdminDonationRow } from "@/hooks/useAdminDonations";
 import { useAdminDonations } from "@/hooks/useAdminDonations";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { useState } from "react";
 
 export function AdminDashboardClient() {
   const { rows, loading, error, needLogin, login, logout, updateDonation, exportCsv } = useAdminDonations();
   const [quickRow, setQuickRow] = useState<AdminDonationRow | null>(null);
 
-  async function handleLogin(password: string) {
-    return login(password);
+  async function handleLogin(password: string, email?: string) {
+    return login(password, email);
   }
 
   if (needLogin && !loading && rows.length === 0) {
@@ -37,9 +38,17 @@ export function AdminDashboardClient() {
           <h1 className="text-[16px] font-bold text-[#581c87]">ניהול תרומות ובקשות איסוף</h1>
           <p className="text-[12px] text-slate-600">רשימה מהמסד, עדכון סטטוסים וייצוא</p>
         </div>
-        <Button type="button" variant="outline" className="rounded-xl border-slate-300 text-[12px]" onClick={() => void logout()}>
-          יציאה
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/users"
+            className="inline-flex items-center justify-center rounded-xl border border-[#9333EA]/35 bg-white px-3 py-2 text-[12px] font-semibold text-[#581c87] transition-colors hover:bg-[#F9F5FF]"
+          >
+            משתמשי ניהול
+          </Link>
+          <Button type="button" variant="outline" className="rounded-xl border-slate-300 text-[12px]" onClick={() => void logout()}>
+            יציאה
+          </Button>
+        </div>
       </header>
 
       <main className="mx-auto mt-8 max-w-6xl px-4">

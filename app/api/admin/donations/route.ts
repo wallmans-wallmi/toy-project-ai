@@ -37,6 +37,14 @@ export async function GET() {
           "amount_paid",
           "pickup_notes",
           "door_code",
+          "pickup_date",
+          "pickup_time",
+          "pickup_address",
+          "pickup_status",
+          "delivery_status",
+          "target_ngo_name",
+          "target_ngo_city",
+          "delivery_time",
         ].join(","),
       )
       .order("created_at", { ascending: false });
