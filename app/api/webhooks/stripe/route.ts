@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { after } from "next/server";
 import Stripe from "stripe";
 import { PICKUP_FEE_ILS } from "@/lib/constants/pricing";
-import { processDonationLetterAfterPayment } from "@/lib/donation-letter";
+import { DONATION_PAYMENT_STATUS_COMPLETED } from "@/lib/donation-journey";
+import { scheduleDonationLetterAfterLeadCapture } from "@/lib/donation-letter";
 import { getStripe } from "@/lib/stripe/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       const { error } = await supabase
         .from("donations")
         .update({
-          payment_status: true,
+          payment_status: DONATION_PAYMENT_STATUS_COMPLETED,
           amount_paid: paid,
           stripe_payment_intent_id:
             typeof session.payment_intent === "string"
@@ -60,11 +60,7 @@ export async function POST(req: Request) {
       if (error) {
         console.error(error);
       } else {
-        after(() =>
-          processDonationLetterAfterPayment(donationId).catch((err) =>
-            console.error("donation-letter after hook:", err),
-          ),
-        );
+        scheduleDonationLetterAfterLeadCapture(donationId);
       }
     } catch (e) {
       console.error(e);

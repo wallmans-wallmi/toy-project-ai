@@ -1,6 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
-/** לשימוש בנתיבי שרת מהימנים בלבד (מחיקת RLS). */
+/**
+ * לקוח Supabase עם מפתח שירות — עוקף RLS.
+ * לשימוש בנתיבי API / webhooks בלבד; אסור לייבא מקומפוננטות client.
+ */
 export function createServiceRoleClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;

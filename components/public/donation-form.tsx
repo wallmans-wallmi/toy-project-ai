@@ -23,6 +23,10 @@ import { DonationFormToyStep } from "@/components/public/donation-form-toy-step"
 import { canAdvanceToNextStep } from "@/components/public/donation-form-validation";
 import { ShippingPickers } from "@/components/forms/ShippingPickers";
 import { PickupDoorNotice } from "@/components/public/pickup-door-notice";
+import {
+  DonationCheckoutLoadingPanel,
+  DonationCheckoutSuccessPanel,
+} from "@/components/public/donation-checkout-feedback";
 import { useDonationCheckout } from "@/hooks/use-donation-checkout";
 import { useDonationForm } from "@/hooks/use-donation-form";
 import { applyPickupDateTime } from "@/hooks/useShippingDetails";
@@ -35,6 +39,7 @@ import {
 import { getPickupMonThuForWeekOffset } from "@/lib/pickup-schedule-slots";
 import { getRegionById, getSlotForRegion, getSlotsForRegion, PICKUP_REGIONS } from "@/lib/pickup-regions";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 export type DonationFormVariant = "default" | "pickupPage";
 
@@ -48,7 +53,13 @@ const PICKUP_ACCENT_TEXT = "text-[#9333EA]";
 export function DonationForm({ variant = "default" }: DonationFormProps) {
   const isPickup = variant === "pickupPage";
   const flow = useDonationForm({ pickupSplitSteps: isPickup });
-  const { checkoutLoading, checkoutError, runCheckout } = useDonationCheckout();
+  const {
+    checkoutLoading,
+    checkoutError,
+    checkoutSuccess,
+    clearCheckoutSuccess,
+    runCheckout,
+  } = useDonationCheckout();
 
   const selectClassName = cn(
     "flex w-full border border-input bg-transparent outline-none transition-colors focus-visible:border-ring focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1 disabled:cursor-not-allowed disabled:opacity-50",
@@ -410,13 +421,13 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
           <span className="text-[#9333EA]" aria-hidden>
             ✓
           </span>
-          <span>מכתב AI מותאם לילד או לילדה המקבלים את הפריטים</span>
+          <span>מכתב AI או תעודת גאווה — לפי המסלול שבחרתם</span>
         </li>
         <li className="flex gap-2">
           <span className="text-[#9333EA]" aria-hidden>
             ✓
           </span>
-          <span>תשלום מאובטח Stripe ללא שמירת פרטי כרטיס אצלנו</span>
+          <span>סליקה בטוחה ואיסוף — ניצור איתכן קשר בקרוב</span>
         </li>
       </ul>
       {checkoutError ? (
@@ -432,8 +443,13 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
     </>
   );
 
+  const onStartNewDonationForm = () => {
+    clearCheckoutSuccess();
+    flow.resetFlow();
+  };
+
   const pickupNextLabel =
-    flow.pickupSplitSteps && flow.stepIndex === 4 ? "לתשלום ←" : "המשך ←";
+    flow.pickupSplitSteps && flow.stepIndex === 4 ? "לשמירת הבקשה ←" : "המשך ←";
 
   if (flow.pickupSplitSteps) {
     const stepHeadline: Record<number, { title: string; desc: string }> = {
@@ -455,11 +471,19 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
       },
       4: {
         title: "סיכום הבקשה",
-        desc: "עוברים על הכל יחד, מאשרים את מצב הפריטים ואת תנאי השירות — ואז עוברים לתשלום מאובטח",
+        desc: "עוברים על הכל יחד, מאשרים את מצב הפריטים ואת תנאי השירות — ואז שומרים את הבקשה",
       },
       5: {
-        title: "תשלום מאובטח",
-        desc: "הסכום כולל שינוע ואיסוף עד הבית ומכתב AI חם לילד המקבל. אחרי תשלום מוצלח נאשר את התיאום",
+        title: checkoutSuccess
+          ? "יאס! נשמר בסטייל"
+          : checkoutLoading
+            ? "רגע קטן, שומרים…"
+            : "מוכנות לסגור פינה?",
+        desc: checkoutSuccess
+          ? "הכל אצלנו — עכשיו רק להתרווח ולחכות לשיחה החמה שלנו."
+          : checkoutLoading
+            ? "שולחות את הפרטים לשרת — עוד רגע זה שם."
+            : "לוחצות ואנחנו כבר על זה — בלי סטריפ, בלי סיבוך.",
       },
     };
 
@@ -554,16 +578,27 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
               ) : null}
 
               {flow.stepIndex === 5 ? (
-                <div className="payment-box space-y-4">
-                  <div className="payment-amount">
-                    <span className="pay-label">{PICKUP_FEE_LABEL}</span>
-                    <span className="pay-price" dir="ltr">
-                      ₪{PICKUP_FEE_ILS}
-                    </span>
+                checkoutSuccess ? (
+                  <DonationCheckoutSuccessPanel
+                    childName={flow.form.childName}
+                    referenceId={checkoutSuccess.id}
+                  />
+                ) : checkoutLoading ? (
+                  <DonationCheckoutLoadingPanel />
+                ) : (
+                  <div className="payment-box checkout-brand-surface space-y-4">
+                    <div className="payment-amount">
+                      <span className="pay-label">{PICKUP_FEE_LABEL}</span>
+                      <span className="pay-price" dir="ltr">
+                        ₪{PICKUP_FEE_ILS}
+                      </span>
+                    </div>
+                    {paymentExtrasBlock}
+                    <p className="secure-badge">
+                      הכל נשמר אצלנו בצורה מאובטחת. אחרי זה — סליקה בטוחה, בלי הפתעות.
+                    </p>
                   </div>
-                  {paymentExtrasBlock}
-                  <p className="secure-badge">תשלום מאובטח דרך Stripe · ללא שמירת פרטי כרטיס אצלנו</p>
-                </div>
+                )
               ) : null}
             </section>
           </div>
@@ -578,14 +613,30 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
               → חזרה
             </button>
             {flow.isPaymentStep ? (
-              <button
-                type="button"
-                className="btn-submit disabled:pointer-events-none disabled:opacity-60"
-                disabled={checkoutLoading}
-                onClick={() => runCheckout(flow.form)}
-              >
-                {checkoutLoading ? "מעבדים תשלום…" : `מעבר לתשלום מאובטח ₪${PICKUP_FEE_ILS}`}
-              </button>
+              checkoutSuccess ? (
+                <button type="button" className="btn-submit" onClick={onStartNewDonationForm}>
+                  מילוי טופס חדש
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-submit btn-submit--checkout disabled:pointer-events-none"
+                  disabled={checkoutLoading}
+                  onClick={() => runCheckout(flow.form)}
+                >
+                  {checkoutLoading ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <Loader2 className="size-5 shrink-0 animate-spin" strokeWidth={2.25} aria-hidden />
+                      שומרים בשבילכן…
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <span aria-hidden>✨</span>
+                      סוגרות פינה בסטייל — ₪{PICKUP_FEE_ILS}
+                    </span>
+                  )}
+                </button>
+              )
             ) : (
               <button type="button" className="btn-next" disabled={!okNext} onClick={flow.goNext}>
                 {pickupNextLabel}
@@ -646,16 +697,26 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
           <>
             <CardTitle className={cardTitleClass}>סיכום</CardTitle>
             <CardDescription className={cardDescClass}>
-              נא לעבור על הפרטים, לאשר את מצב הפריטים ואת תנאי השירות, לפני מעבר לתשלום {PICKUP_FEE_LABEL}
+              {`נא לעבור על הפרטים, לאשר את מצב הפריטים ואת תנאי השירות — ובשלב הבא נשמור את הבקשה (${PICKUP_FEE_LABEL}) ונמשיך לסליקה בטוחה.`}
             </CardDescription>
           </>
         ) : null}
 
         {flow.stepIndex === 4 ? (
           <>
-            <CardTitle className={cardTitleClass}>תשלום מאובטח</CardTitle>
+            <CardTitle className={cardTitleClass}>
+              {checkoutSuccess
+                ? "יאס! נשמר בסטייל"
+                : checkoutLoading
+                  ? "רגע קטן, שומרים…"
+                  : "סוגרות את זה?"}
+            </CardTitle>
             <CardDescription className={cardDescClass}>
-              הסכום כולל שינוע ואיסוף עד הבית ומכתב AI לילד המקבל לאחר תשלום מוצלח נאשר את התיאום הסופי
+              {checkoutSuccess
+                ? "הפרטים אצלנו — ניצור קשר לסליקה בטוחה ואיסוף, בלי לחץ."
+                : checkoutLoading
+                  ? "שולחות את הפרטים לשרת — עוד רגע."
+                  : `${PICKUP_FEE_LABEL} — שומרים את הבקשה, ואז נמשיך לסליקה בטוחה.`}
             </CardDescription>
           </>
         ) : null}
@@ -727,10 +788,21 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
         ) : null}
 
         {flow.stepIndex === 4 ? (
-          <div className="space-y-4 rounded-2xl border border-violet-100 bg-violet-50/40 p-5 ps-5 pe-5">
-            <p className={cn("font-semibold text-slate-900", isPickup ? "text-base" : "text-lg")}>{PICKUP_FEE_LABEL}</p>
-            {paymentExtrasBlock}
-          </div>
+          checkoutSuccess ? (
+            <DonationCheckoutSuccessPanel
+              childName={flow.form.childName}
+              referenceId={checkoutSuccess.id}
+            />
+          ) : checkoutLoading ? (
+            <DonationCheckoutLoadingPanel />
+          ) : (
+            <div className="space-y-4 rounded-2xl border border-[#9333EA]/20 bg-[#F9F5FF] p-5 ps-5 pe-5 shadow-inner">
+              <p className={cn("font-semibold text-slate-900", isPickup ? "text-base" : "text-lg")}>
+                {PICKUP_FEE_LABEL}
+              </p>
+              {paymentExtrasBlock}
+            </div>
+          )
         ) : null}
       </CardContent>
 
@@ -745,18 +817,42 @@ export function DonationForm({ variant = "default" }: DonationFormProps) {
           חזרה
         </Button>
         {flow.isPaymentStep ? (
-          <Button
-            type="button"
-            className={cn(
-              "ms-auto text-white",
-              PICKUP_PRIMARY,
-              isPickup ? "min-h-12 rounded-2xl px-8 text-base" : "rounded-full px-8",
-            )}
-            disabled={checkoutLoading}
-            onClick={() => runCheckout(flow.form)}
-          >
-            {checkoutLoading ? "מעבדים תשלום" : `מעבר לתשלום מאובטח ₪${PICKUP_FEE_ILS}`}
-          </Button>
+          checkoutSuccess ? (
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                "ms-auto border-[#9333EA]/40 text-[#581c87]",
+                isPickup ? "min-h-12 rounded-2xl px-8 text-base" : "rounded-full px-8",
+              )}
+              onClick={onStartNewDonationForm}
+            >
+              מילוי טופס חדש
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              className={cn(
+                "ms-auto inline-flex min-h-12 items-center justify-center gap-2 text-white shadow-lg shadow-[#9333EA]/35 transition-[transform,box-shadow] hover:scale-[1.02] hover:shadow-xl hover:shadow-[#9333EA]/40 active:scale-[0.99] disabled:opacity-85",
+                PICKUP_PRIMARY,
+                isPickup ? "min-h-12 rounded-2xl px-8 text-base" : "rounded-full px-8",
+              )}
+              disabled={checkoutLoading}
+              onClick={() => runCheckout(flow.form)}
+            >
+              {checkoutLoading ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" strokeWidth={2.25} aria-hidden />
+                  שומרים בשבילכן…
+                </>
+              ) : (
+                <>
+                  <span aria-hidden>✨</span>
+                  סוגרות פינה בסטייל — ₪{PICKUP_FEE_ILS}
+                </>
+              )}
+            </Button>
+          )
         ) : (
           <Button
             type="button"

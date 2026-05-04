@@ -47,6 +47,26 @@ export function isToySizeId(value: unknown): value is ToySizeId {
   return value === "small" || value === "medium" || value === "large";
 }
 
+/**
+ * פרסור מערך פריטים מה-API (checkout). מחזיר null אם המבנה לא תקין.
+ * מערך ריק חוקי למסלולי גמילה בלי פריטים מפורטים.
+ */
+export function parseToyItemsPayload(raw: unknown): ToyItemPayload[] | null {
+  if (!Array.isArray(raw)) return null;
+  if (raw.length === 0) return [];
+  const out: ToyItemPayload[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") return null;
+    const o = entry as Record<string, unknown>;
+    const name = typeof o.name === "string" ? o.name.trim() : "";
+    const color = typeof o.color === "string" ? o.color.trim() : "";
+    const size = o.size;
+    if (!name || !color || !isToySizeId(size)) return null;
+    out.push({ name, color, size });
+  }
+  return out;
+}
+
 /** פריטים מלאים בלבד, לשמירה ותצוגה */
 export function normalizedToyPayloads(rows: ToyItemRow[]): ToyItemPayload[] {
   return rows

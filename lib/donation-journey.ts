@@ -1,3 +1,12 @@
+import type { PickupTimeSlot } from "@/lib/pickup-regions";
+import { getRegionById, getSlotForRegion } from "@/lib/pickup-regions";
+import { formatPickupTimeSummaryLine } from "@/lib/pickup-schedule-slots";
+import {
+  formatToyDescriptionFromPayloads,
+  parseToyItemsPayload,
+  type ToyItemPayload,
+} from "@/lib/toy-donation";
+
 /** מזהי מסלול תרומה או גמילה לשדה journey_type במסד */
 export const DONATION_JOURNEY_IDS = [
   "toy_dropoff",
@@ -79,4 +88,206 @@ export function journeyItemsStepHint(journeyType: string): string | null {
     default:
       return null;
   }
+}
+
+// ─── Abandoned cart / lead capture (API checkout) — לוגיקה מרוכזת כאן לפי ארכיטקטורה ───
+
+/** ערכים חוקיים לעמודת payment_status ב־Supabase */
+export const DONATION_PAYMENT_STATUS_PENDING = "pending" as const;
+export const DONATION_PAYMENT_STATUS_COMPLETED = "completed" as const;
+
+export type DonationPaymentLifecycleStatus =
+  | typeof DONATION_PAYMENT_STATUS_PENDING
+  | typeof DONATION_PAYMENT_STATUS_COMPLETED;
+
+export type DonationCheckoutRequestBody = {
+  firstName?: string;
+  lastName?: string;
+  childName?: string;
+  journeyType?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  doorCode?: string;
+  region?: string;
+  /** עיר מטופס האיסוף — נתוני שיווק / שימור */
+  pickupCity?: string;
+  toyItems?: unknown;
+  toysQualityConfirmed?: boolean;
+  termsAccepted?: boolean;
+  pickupSlotId?: string | null;
+  pickupDate?: string;
+  pickupNotes?: string;
+};
+
+export type DonationCheckoutLeadValidated = {
+  firstName: string;
+  lastName: string;
+  childName: string;
+  phone: string;
+  email: string;
+  address: string;
+  doorCode: string;
+  pickupNotes: string;
+  region: string;
+  pickupCity: string | null;
+  journeyType: DonationJourneyId;
+  toyPayloads: ToyItemPayload[];
+  pickupSlotId: string;
+  pickupDateRaw: string;
+  scheduledSlotLabel: string;
+  slot: PickupTimeSlot;
+};
+
+/** תגובת API ל־/api/checkout לאחר לכידת ליד — ל־Mixpanel / Meta Pixel וכו׳ */
+export type CheckoutLeadCapturedApiPayload = {
+  success: true;
+  donation_id: string;
+  payment_status: typeof DONATION_PAYMENT_STATUS_PENDING;
+  lead_captured: true;
+  lead: {
+    donation_id: string;
+    journey_type: DonationJourneyId;
+    scheduled_region: string;
+    toy_items_count: number;
+  };
+};
+
+export function buildCheckoutLeadCaptureApiPayload(
+  donationId: string,
+  validated: DonationCheckoutLeadValidated,
+): CheckoutLeadCapturedApiPayload {
+  return {
+    success: true,
+    donation_id: donationId,
+    payment_status: DONATION_PAYMENT_STATUS_PENDING,
+    lead_captured: true,
+    lead: {
+      donation_id: donationId,
+      journey_type: validated.journeyType,
+      scheduled_region: validated.region,
+      toy_items_count: validated.toyPayloads.length,
+    },
+  };
+}
+
+function isValidEmailForCheckout(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+/**
+ * אימות מלא של גוף הבקשה ל־checkout — לפני כל כתיבה ל־Supabase (ליד / עגלה נטושה).
+ */
+export function validateDonationCheckoutLead(
+  body: DonationCheckoutRequestBody,
+): { ok: DonationCheckoutLeadValidated } | { error: string } {
+  const journeyTypeRaw = body.journeyType;
+  if (!isDonationJourneyId(journeyTypeRaw)) {
+    return { error: "נא לבחור את המשימה שלכם לפני התשלום" };
+  }
+
+  const toyPayloads = parseToyItemsPayload(body.toyItems);
+  if (toyPayloads === null) {
+    return { error: "רשימת הפריטים לא תקינה — נא לעדכן ולנסות שוב" };
+  }
+
+  if (isToyDropoffJourney(journeyTypeRaw) && toyPayloads.length === 0) {
+    return { error: "נא למלא לפחות פריט אחד עם כל השדות" };
+  }
+
+  if (body.toysQualityConfirmed !== true) {
+    return { error: "נא לאשר את מצב הפריטים לפני התשלום" };
+  }
+
+  const childName = body.childName?.trim() ?? "";
+  if (!childName) {
+    return { error: "נא למלא את שם הילד או הילדה" };
+  }
+
+  if (body.termsAccepted !== true) {
+    return { error: "נא לאשר את תנאי השירות לפני התשלום" };
+  }
+
+  const firstName = body.firstName?.trim();
+  const lastName = body.lastName?.trim();
+  const phone = body.phone?.trim();
+  const email = body.email?.trim() ?? "";
+  const address = body.address?.trim();
+  const region = body.region?.trim();
+
+  if (!firstName || !lastName || !phone || !address || !region) {
+    return { error: "חסרים שדות חובה" };
+  }
+
+  if (!isValidEmailForCheckout(email)) {
+    return { error: "נא למלא אימייל תקין" };
+  }
+
+  const pickupSlotId = body.pickupSlotId?.trim() ?? "";
+  const regionMeta = getRegionById(region);
+  const slot = pickupSlotId ? getSlotForRegion(region, pickupSlotId) : undefined;
+  if (!regionMeta || !slot) {
+    return { error: "אזור או חלון זמן לא תקינים" };
+  }
+
+  const pickupDateRaw = body.pickupDate?.trim() ?? "";
+  const pickupDateOk = pickupDateRaw ? /^\d{4}-\d{2}-\d{2}$/.test(pickupDateRaw) : false;
+  const scheduledSlotLabel =
+    pickupDateOk && pickupDateRaw
+      ? formatPickupTimeSummaryLine(pickupDateRaw, pickupSlotId, slot.label)
+      : slot.label;
+
+  const pickupCityRaw = body.pickupCity?.trim() ?? "";
+  const pickupCity = pickupCityRaw.length > 0 ? pickupCityRaw : null;
+
+  return {
+    ok: {
+      firstName,
+      lastName,
+      childName,
+      phone,
+      email,
+      address,
+      doorCode: body.doorCode?.trim() ?? "",
+      pickupNotes: body.pickupNotes?.trim() ?? "",
+      region,
+      pickupCity,
+      journeyType: journeyTypeRaw,
+      toyPayloads,
+      pickupSlotId,
+      pickupDateRaw,
+      scheduledSlotLabel,
+      slot,
+    },
+  };
+}
+
+/** שורת insert ל־donations — ליד מיד לאחר אימות (עגלה נטושה, לפני תשלום) */
+export function buildDonationAbandonedCartLeadRow(v: DonationCheckoutLeadValidated): Record<string, unknown> {
+  const toyDescription = formatToyDescriptionFromPayloads(v.toyPayloads);
+  return {
+    first_name: v.firstName,
+    last_name: v.lastName,
+    child_name: v.childName,
+    phone: v.phone,
+    email: v.email,
+    address: v.address,
+    door_code: v.doorCode || null,
+    toy_description: toyDescription || null,
+    toy_items: v.toyPayloads,
+    toys_quality_confirmed: true,
+    terms_accepted: true,
+    pickup_weekday: v.slot.weekday,
+    pickup_slot_id: v.slot.id,
+    scheduled_slot: v.scheduledSlotLabel,
+    pickup_notes: v.pickupNotes || null,
+    scheduled_region: v.region,
+    pickup_city: v.pickupCity,
+    journey_type: v.journeyType,
+    payment_status: DONATION_PAYMENT_STATUS_PENDING,
+    amount_paid: 0,
+    letter_status: "pending",
+    ai_generated_letter: null,
+    destination_name: null,
+  };
 }

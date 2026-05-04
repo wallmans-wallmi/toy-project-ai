@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import {
   getDonationJourneyLabel,
   isToyDropoffJourney,
@@ -205,4 +206,13 @@ export async function processDonationLetterAfterPayment(donationId: string): Pro
     console.error("donation-letter: generation failed", e);
     await supabase.from("donations").update({ letter_status: "failed" }).eq("id", donationId);
   }
+}
+
+/** לאחר שמירת ליד (עגלה נטושה) — יצירת מכתב/תעודה ברקע בלי לחסום את תשובת ה-API */
+export function scheduleDonationLetterAfterLeadCapture(donationId: string): void {
+  after(() =>
+    processDonationLetterAfterPayment(donationId).catch((err) =>
+      console.error("donation-letter after lead capture:", err),
+    ),
+  );
 }

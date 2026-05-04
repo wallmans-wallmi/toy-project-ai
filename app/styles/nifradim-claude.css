@@ -982,6 +982,10 @@ body {
       padding: 20px;
       margin-bottom: 8px;
     }
+    .payment-box.checkout-brand-surface {
+      background: #f9f5ff;
+      border-color: rgba(147, 51, 234, 0.22);
+    }
     .payment-amount {
       display: flex;
       justify-content: space-between;
@@ -1629,6 +1633,27 @@ body {
       transition: all 0.25s;
     }
     .btn-submit:hover { transform: translateY(-2px); }
+    .btn-submit.btn-submit--checkout {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, #9333ea 0%, #a855f7 48%, #ec4899 100%);
+      box-shadow: 0 10px 28px -6px rgba(147, 51, 234, 0.48);
+      font-size: 1.05rem;
+      letter-spacing: 0.01em;
+    }
+    .btn-submit.btn-submit--checkout:not(:disabled):hover {
+      transform: translateY(-2px) scale(1.01);
+      box-shadow: 0 14px 36px -8px rgba(147, 51, 234, 0.55);
+      filter: brightness(1.04);
+    }
+    .btn-submit.btn-submit--checkout:disabled {
+      opacity: 0.78;
+      transform: none;
+      cursor: wait;
+      filter: saturate(0.95);
+    }
 
     /* Success state */
     .form-success {
