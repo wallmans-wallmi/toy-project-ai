@@ -18,6 +18,14 @@ export type AdminDonationPatch = {
   ngo_name?: string | null;
   target_ngo_city?: string | null;
   delivery_time?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  child_name?: string | null;
+  pickup_notes?: string | null;
+  door_code?: string | null;
 };
 
 export type AdminDonationRow = {

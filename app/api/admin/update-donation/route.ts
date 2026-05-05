@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionCookie } from "@/lib/admin-auth";
+import { ADMIN_SESSION_COOKIE, getAdminSessionFromCookie, verifyAdminSessionCookie } from "@/lib/admin-auth";
+import { donationPatchForbiddenMessage } from "@/lib/admin-donation-patch-rbac";
+import type { AdminDashboardRole } from "@/lib/admin-role-types";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -24,6 +26,14 @@ const bodySchema = z
     target_ngo_name: z.union([z.string(), z.null()]).optional(),
     target_ngo_city: z.union([z.string(), z.null()]).optional(),
     delivery_time: z.union([z.string(), z.null()]).optional(),
+    first_name: z.union([z.string(), z.null()]).optional(),
+    last_name: z.union([z.string(), z.null()]).optional(),
+    phone: z.union([z.string(), z.null()]).optional(),
+    email: z.union([z.string(), z.null()]).optional(),
+    address: z.union([z.string(), z.null()]).optional(),
+    child_name: z.union([z.string(), z.null()]).optional(),
+    pickup_notes: z.union([z.string(), z.null()]).optional(),
+    door_code: z.union([z.string(), z.null()]).optional(),
   })
   .refine(
     (b) =>
@@ -36,7 +46,16 @@ const bodySchema = z
       b.delivery_status !== undefined ||
       b.target_ngo_name !== undefined ||
       b.target_ngo_city !== undefined ||
-      b.delivery_time !== undefined,
+      b.delivery_time !== undefined ||
+      b.first_name !== undefined ||
+      b.last_name !== undefined ||
+      b.phone !== undefined ||
+      b.email !== undefined ||
+      b.address !== undefined ||
+      b.child_name !== undefined ||
+      b.pickup_notes !== undefined ||
+      b.door_code !== undefined ||
+      b.child_name !== undefined,
     { message: "חובה לשלוח לפחות שדה אחד לעדכון" },
   );
 
@@ -47,26 +66,30 @@ function emptyToNull(v: string | null | undefined): string | null | undefined {
   return t === "" ? null : v;
 }
 
-export async function POST(req: Request) {
-  const cookieStore = await cookies();
-  const session = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
-  if (!verifyAdminSessionCookie(session)) {
-    return NextResponse.json({ error: "אין הרשאה" }, { status: 401 });
-  }
+function activeKeysFromBody(body: Record<string, unknown>): string[] {
+  const skip = new Set(["id"]);
+  return Object.keys(body).filter((k) => !skip.has(k) && body[k] !== undefined);
+}
 
-  let json: unknown;
-  try {
-    json = await req.json();
-  } catch {
-    return NextResponse.json({ error: "גוף הבקשה לא תקין" }, { status: 400 });
+function mapAliases(body: Record<string, unknown>): Record<string, unknown> {
+  const b = { ...body };
+  if ("pickup_location" in b && b.pickup_address === undefined) {
+    b.pickup_address = b.pickup_location;
+    delete b.pickup_location;
   }
-
-  const parsed = bodySchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "נתונים לא תקינים" }, { status: 400 });
+  if ("ngo_name" in b && b.target_ngo_name === undefined) {
+    b.target_ngo_name = b.ngo_name;
+    delete b.ngo_name;
   }
+  return b;
+}
 
-  const b = parsed.data;
+function keysForRbac(body: Record<string, unknown>): string[] {
+  const b = mapAliases(body);
+  return activeKeysFromBody(b);
+}
+
+function buildPatch(b: z.infer<typeof bodySchema>): Record<string, string | null> {
   const patch: Record<string, string | null> = {};
   if (b.payment_status !== undefined) patch.payment_status = b.payment_status;
   if (b.letter_status !== undefined) patch.letter_status = b.letter_status;
@@ -79,13 +102,52 @@ export async function POST(req: Request) {
   if (b.target_ngo_city !== undefined) patch.target_ngo_city = emptyToNull(b.target_ngo_city) ?? null;
   if (b.delivery_time !== undefined) {
     const raw = b.delivery_time;
-    if (raw === null || raw === "") patch.delivery_time = null;
-    else patch.delivery_time = raw;
+    patch.delivery_time = raw === null || raw === "" ? null : raw;
   }
+  if (b.first_name !== undefined) patch.first_name = emptyToNull(b.first_name) ?? null;
+  if (b.last_name !== undefined) patch.last_name = emptyToNull(b.last_name) ?? null;
+  if (b.phone !== undefined) patch.phone = emptyToNull(b.phone) ?? null;
+  if (b.email !== undefined) patch.email = emptyToNull(b.email) ?? null;
+  if (b.address !== undefined) patch.address = emptyToNull(b.address) ?? null;
+  if (b.child_name !== undefined) patch.child_name = emptyToNull(b.child_name) ?? null;
+  if (b.pickup_notes !== undefined) patch.pickup_notes = emptyToNull(b.pickup_notes) ?? null;
+  if (b.door_code !== undefined) patch.door_code = emptyToNull(b.door_code) ?? null;
+  if (b.child_name !== undefined) patch.child_name = emptyToNull(b.child_name) ?? null;
+  return patch;
+}
+
+export async function POST(req: Request) {
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
+  if (!verifyAdminSessionCookie(raw)) {
+    return NextResponse.json({ error: "אין הרשאה" }, { status: 401 });
+  }
+  const session = getAdminSessionFromCookie(raw);
+  const role: AdminDashboardRole = session?.role ?? "admin";
+
+  let bodyRaw: Record<string, unknown>;
+  try {
+    bodyRaw = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "גוף הבקשה לא תקין" }, { status: 400 });
+  }
+
+  const rbacMsg = donationPatchForbiddenMessage(role, keysForRbac(bodyRaw));
+  if (rbacMsg) {
+    return NextResponse.json({ error: rbacMsg }, { status: 403 });
+  }
+
+  const body = mapAliases(bodyRaw);
+  const parsed = bodySchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "נתונים לא תקינים" }, { status: 400 });
+  }
+
+  const patch = buildPatch(parsed.data);
 
   try {
     const supabase = createServiceRoleClient();
-    const { error } = await supabase.from("donations").update(patch).eq("id", b.id);
+    const { error } = await supabase.from("donations").update(patch).eq("id", parsed.data.id);
     if (error) {
       console.error(error);
       return NextResponse.json({ error: "העדכון נכשל" }, { status: 500 });

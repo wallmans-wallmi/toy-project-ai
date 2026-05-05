@@ -1,21 +1,31 @@
 "use client";
 
 import { AdminDonationQuickView } from "@/components/admin/AdminDonationQuickView";
+import { AdminDashboardTabs } from "@/components/admin/AdminDashboardTabs";
 import { AdminLoginPanel } from "@/components/admin/AdminLoginPanel";
-import { DonationTable } from "@/components/admin/DonationTable";
 import type { AdminDonationRow } from "@/hooks/useAdminDonations";
 import { useAdminDonations } from "@/hooks/useAdminDonations";
+import { useAdminSession } from "@/hooks/useAdminSession";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function AdminDashboardClient() {
   const { rows, loading, error, needLogin, login, logout, updateDonation, exportCsv } = useAdminDonations();
+  const { role, accountRole, loading: sessionLoading, refreshSession } = useAdminSession();
   const [quickRow, setQuickRow] = useState<AdminDonationRow | null>(null);
 
+  useEffect(() => {
+    if (!needLogin) void refreshSession();
+  }, [needLogin, refreshSession]);
+
   async function handleLogin(password: string, email?: string) {
-    return login(password, email);
+    const ok = await login(password, email);
+    if (ok) await refreshSession();
+    return ok;
   }
+
+  const effectiveRole = role ?? "admin";
+  const effectiveAccountRole = accountRole ?? "admin";
 
   if (needLogin && !loading && rows.length === 0) {
     return (
@@ -35,20 +45,14 @@ export function AdminDashboardClient() {
     <div className="min-h-screen bg-[#F9F5FF] pb-16 pt-8" dir="rtl" lang="he">
       <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4">
         <div>
-          <h1 className="text-[16px] font-bold text-[#581c87]">ניהול תרומות ובקשות איסוף</h1>
-          <p className="text-[12px] text-slate-600">רשימה מהמסד, עדכון סטטוסים וייצוא</p>
+          <h1 className="text-[16px] font-bold text-[#581c87]">לוגיסטיקה ותרומות</h1>
+          <p className="text-[12px] text-slate-600">
+            {sessionLoading ? "טוענים הרשאות…" : `מחוברים כ־${effectiveRole === "driver" ? "נהג/ת" : effectiveRole === "office" ? "משרד" : "אדמין"}`}
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/admin/users"
-            className="inline-flex items-center justify-center rounded-xl border border-[#9333EA]/35 bg-white px-3 py-2 text-[12px] font-semibold text-[#581c87] transition-colors hover:bg-[#F9F5FF]"
-          >
-            משתמשי ניהול
-          </Link>
-          <Button type="button" variant="outline" className="rounded-xl border-slate-300 text-[12px]" onClick={() => void logout()}>
-            יציאה
-          </Button>
-        </div>
+        <Button type="button" variant="outline" className="rounded-xl border-slate-300 text-[12px]" onClick={() => void logout()}>
+          יציאה
+        </Button>
       </header>
 
       <main className="mx-auto mt-8 max-w-6xl px-4">
@@ -64,7 +68,9 @@ export function AdminDashboardClient() {
             {error}
           </p>
         ) : (
-          <DonationTable
+          <AdminDashboardTabs
+            role={effectiveRole}
+            accountRole={effectiveAccountRole}
             rows={rows}
             onUpdate={updateDonation}
             onQuickView={setQuickRow}

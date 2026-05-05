@@ -1,5 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { loadServerEnvOnce } from "@/lib/load-server-env";
+import type { AdminDashboardRole } from "@/lib/admin-role-types";
+import { normalizeDashboardRole } from "@/lib/admin-role-types";
+
+export type { AdminDashboardRole } from "@/lib/admin-role-types";
 
 export const ADMIN_SESSION_COOKIE = "nifradim_admin_session";
 const HMAC_MESSAGE = "nifradim-admin-dashboard-v1";
@@ -10,6 +14,13 @@ type SessionPayloadV2 = {
   email: string;
   role: string;
   exp: number;
+};
+
+export type AdminSessionInfo = {
+  sub: string;
+  email: string;
+  role: AdminDashboardRole;
+  kind: "v2" | "legacy";
 };
 
 /** BOM + רווחים — גם בערך מהסביבה וגם בהקלדה */
@@ -103,26 +114,49 @@ export function signAdminSessionV2(input: {
   return `v2.${bodyB64}.${sig}`;
 }
 
-function verifyAdminSessionV2(raw: string): boolean {
+function parseVerifiedSessionV2(raw: string): SessionPayloadV2 | null {
   const prefix = "v2.";
-  if (!raw.startsWith(prefix)) return false;
+  if (!raw.startsWith(prefix)) return null;
   const rest = raw.slice(prefix.length);
   const dot = rest.lastIndexOf(".");
-  if (dot <= 0) return false;
+  if (dot <= 0) return null;
   const bodyB64 = rest.slice(0, dot);
   const sig = rest.slice(dot + 1);
   const secret = adminSessionSecret();
-  if (!secret) return false;
+  if (!secret) return null;
   const expectedSig = createHmac("sha256", secret).update(bodyB64).digest("base64url");
-  if (!timingSafeEqualB64Url(sig, expectedSig)) return false;
+  if (!timingSafeEqualB64Url(sig, expectedSig)) return null;
   try {
     const parsed = JSON.parse(Buffer.from(bodyB64, "base64url").toString("utf8")) as SessionPayloadV2;
-    if (parsed.v !== 2 || typeof parsed.exp !== "number") return false;
-    if (parsed.exp * 1000 < Date.now()) return false;
-    return true;
+    if (parsed.v !== 2 || typeof parsed.exp !== "number") return null;
+    if (parsed.exp * 1000 < Date.now()) return null;
+    return parsed;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function verifyAdminSessionV2(raw: string): boolean {
+  return parseVerifiedSessionV2(raw) !== null;
+}
+
+/** מחזיר פרטי סשן ל־RBAC (או null אם לא תקין) */
+export function getAdminSessionFromCookie(raw: string | undefined): AdminSessionInfo | null {
+  if (!raw) return null;
+  if (raw.startsWith("v2.")) {
+    const p = parseVerifiedSessionV2(raw);
+    if (!p) return null;
+    return {
+      sub: p.sub,
+      email: p.email,
+      role: normalizeDashboardRole(p.role),
+      kind: "v2",
+    };
+  }
+  if (verifyLegacyAdminSessionCookie(raw)) {
+    return { sub: "legacy", email: "", role: "admin", kind: "legacy" };
+  }
+  return null;
 }
 
 function verifyLegacyAdminSessionCookie(raw: string | undefined): boolean {

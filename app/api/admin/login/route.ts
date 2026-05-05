@@ -8,6 +8,7 @@ import {
   signAdminSessionV2,
   verifyAdminPlainPassword,
 } from "@/lib/admin-auth";
+import { getLogisticsRoleForUser } from "@/lib/admin-profile-service";
 import { countAdminUsers, normalizeAdminEmail, verifyAdminUserPassword } from "@/lib/admin-user-service";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
@@ -48,10 +49,11 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ error: "אימייל או סיסמה לא מתאימים — נסו שוב בנחת" }, { status: 401 });
     }
+    const logisticsRole = await getLogisticsRoleForUser(supabase, user.id);
     const token = signAdminSessionV2({
       sub: user.id,
       email: user.email,
-      role: user.role,
+      role: logisticsRole,
     });
     if (!token) {
       console.error("[נפרדים בחיוך][admin-login] חסר מפתח לחתימת סשן (ADMIN_SESSION_SECRET או SUPABASE_SERVICE_ROLE_KEY).");
