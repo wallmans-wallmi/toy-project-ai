@@ -1,5 +1,6 @@
 "use client";
 
+import { DonationProgressTrackers } from "@/components/admin/donation-progress-trackers";
 import type { AdminDashboardRole } from "@/lib/admin-role-types";
 import type { AdminDonationPatch, AdminDonationRow } from "@/hooks/useAdminDonations";
 import { formatToyItemsLine } from "@/hooks/useAdminDonations";
@@ -37,9 +38,10 @@ type Props = {
   role: AdminDashboardRole;
   onUpdate: (id: string, patch: AdminDonationPatch) => Promise<boolean>;
   onQuickView: (row: AdminDonationRow) => void;
+  showProgress?: boolean;
 };
 
-export function DonationMobileCard({ r, role, onUpdate, onQuickView }: Props) {
+export function DonationMobileCard({ r, role, onUpdate, onQuickView, showProgress = true }: Props) {
   const canLogistics = role === "admin" || role === "driver";
   const canOfficeFields = role === "admin" || role === "office";
   const canPayment = role === "admin";
@@ -58,6 +60,11 @@ export function DonationMobileCard({ r, role, onUpdate, onQuickView }: Props) {
 
   return (
     <article className="rounded-2xl border border-[#9333EA]/20 bg-white p-4 shadow-sm">
+      {showProgress ? (
+        <div className="mb-3">
+          <DonationProgressTrackers r={r} />
+        </div>
+      ) : null}
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[15px] font-bold text-slate-900">{r.child_name || "ללא שם ילד"}</p>

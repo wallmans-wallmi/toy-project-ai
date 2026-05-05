@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionFromCookie } from "@/lib/admin-auth";
-import { getAccountRoleForUser } from "@/lib/admin-team-access";
+import { getAccountRoleForUser, sessionCanEditAdminCredentials } from "@/lib/admin-team-access";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -14,17 +14,21 @@ export async function GET() {
     return NextResponse.json({ error: "אין הרשאה" }, { status: 401 });
   }
   let accountRole: "admin" | "superadmin" = "admin";
-  if (session.kind === "v2" && session.sub !== "legacy") {
-    try {
-      const supabase = createServiceRoleClient();
+  let canEditAdminCredentials = false;
+  try {
+    const supabase = createServiceRoleClient();
+    if (session.kind === "v2" && session.sub !== "legacy") {
       accountRole = await getAccountRoleForUser(supabase, session.sub);
-    } catch {
-      accountRole = "admin";
     }
+    canEditAdminCredentials = await sessionCanEditAdminCredentials(supabase, session);
+  } catch {
+    accountRole = "admin";
+    canEditAdminCredentials = false;
   }
   return NextResponse.json({
     role: session.role,
     email: session.email || null,
     accountRole,
+    canEditAdminCredentials,
   });
 }

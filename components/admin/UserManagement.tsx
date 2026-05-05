@@ -1,19 +1,18 @@
 "use client";
 
+import { EditUserModal } from "@/components/admin/EditUserModal";
+import { PasswordField } from "@/components/admin/password-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { useAdminSession } from "@/hooks/useAdminSession";
 import type { AdminDashboardRole } from "@/lib/admin-role-types";
-import { useCallback, useEffect, useState } from "react";
+import type { TeamMemberRow } from "@/lib/admin-team-member";
+import { cn } from "@/lib/utils";
+import { Pencil } from "lucide-react";
+import { useCallback, useEffect, useId, useState } from "react";
 
-export type TeamMemberRow = {
-  id: string;
-  email: string;
-  account_role: string;
-  logistics_role: AdminDashboardRole;
-  created_at: string;
-};
+export type { TeamMemberRow } from "@/lib/admin-team-member";
 
 function badgeClass(logistics: AdminDashboardRole): string {
   if (logistics === "admin") return "bg-[#9333EA] text-white ring-1 ring-[#9333EA]/40";
@@ -32,6 +31,8 @@ type UserManagementProps = {
 };
 
 export function UserManagement({ onNotify }: UserManagementProps) {
+  const newPassId = useId();
+  const { canEditAdminCredentials } = useAdminSession();
   const [members, setMembers] = useState<TeamMemberRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -39,6 +40,8 @@ export function UserManagement({ onNotify }: UserManagementProps) {
   const [newPassword, setNewPassword] = useState("");
   const [newLogistics, setNewLogistics] = useState<AdminDashboardRole>("admin");
   const [busy, setBusy] = useState(false);
+  const [editMember, setEditMember] = useState<TeamMemberRow | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -145,8 +148,10 @@ export function UserManagement({ onNotify }: UserManagementProps) {
             <Input className="mt-1 rounded-xl border-slate-200" type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} autoComplete="off" />
           </div>
           <div>
-            <Label className="text-[11px]">סיסמה ראשונית</Label>
-            <Input className="mt-1 rounded-xl border-slate-200" type="password" required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <Label htmlFor={newPassId} className="text-[11px]">
+              סיסמה ראשונית
+            </Label>
+            <PasswordField id={newPassId} className="mt-1 rounded-xl border-slate-200" required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
           </div>
           <div className="sm:col-span-2">
             <Label className="text-[11px]">תפקיד במערכת (לוגיסטיקה)</Label>
@@ -186,6 +191,20 @@ export function UserManagement({ onNotify }: UserManagementProps) {
                 <option value="office">משרד</option>
                 <option value="driver">נהג/ת</option>
               </select>
+              {canEditAdminCredentials ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="inline-flex gap-1.5 rounded-xl border-[#9333EA]/40 font-bold text-[#581c87] hover:bg-[#F9F5FF]"
+                  onClick={() => {
+                    setEditMember(m);
+                    setEditOpen(true);
+                  }}
+                >
+                  <Pencil className="size-3.5 shrink-0" aria-hidden />
+                  עריכה
+                </Button>
+              ) : null}
               <Button type="button" variant="outline" className="rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => void removeMember(m.id, m.email)}>
                 מחיקת גישה
               </Button>
@@ -193,6 +212,19 @@ export function UserManagement({ onNotify }: UserManagementProps) {
           </li>
         ))}
       </ul>
+
+      <EditUserModal
+        member={editMember}
+        open={editOpen}
+        onClose={() => {
+          setEditOpen(false);
+          setEditMember(null);
+        }}
+        onSaved={(toast) => {
+          onNotify?.(toast);
+          void load();
+        }}
+      />
     </div>
   );
 }

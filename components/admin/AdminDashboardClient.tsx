@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 
 export function AdminDashboardClient() {
-  const { rows, loading, error, needLogin, login, logout, updateDonation, exportCsv } = useAdminDonations();
+  const { rows, analytics, loading, error, needLogin, login, logout, updateDonation, exportCsv } = useAdminDonations();
   const { role, accountRole, loading: sessionLoading, refreshSession } = useAdminSession();
   const [quickRow, setQuickRow] = useState<AdminDonationRow | null>(null);
 
@@ -72,6 +72,7 @@ export function AdminDashboardClient() {
             role={effectiveRole}
             accountRole={effectiveAccountRole}
             rows={rows}
+            analytics={analytics}
             onUpdate={updateDonation}
             onQuickView={setQuickRow}
             onExport={exportCsv}

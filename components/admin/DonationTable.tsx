@@ -11,9 +11,20 @@ type DonationTableProps = {
   onUpdate: (id: string, patch: AdminDonationPatch) => Promise<boolean>;
   onQuickView: (row: AdminDonationRow) => void;
   onExport: () => void;
+  /** טאב «כל ההזמנות» — עמודות מורחבות בדסקטופ */
+  variant?: "default" | "all";
+  showProgress?: boolean;
 };
 
-export function DonationTable({ role, rows, onUpdate, onQuickView, onExport }: DonationTableProps) {
+export function DonationTable({
+  role,
+  rows,
+  onUpdate,
+  onQuickView,
+  onExport,
+  variant = "default",
+  showProgress = true,
+}: DonationTableProps) {
   return (
     <div dir="rtl" lang="he" className="space-y-4">
       {rows.length === 0 ? (
@@ -24,13 +35,21 @@ export function DonationTable({ role, rows, onUpdate, onQuickView, onExport }: D
 
       <div className="hidden lg:block">
         {rows.length > 0 ? (
-          <DonationDesktopRbacTable role={role} rows={rows} onUpdate={onUpdate} onQuickView={onQuickView} onExport={onExport} />
+          <DonationDesktopRbacTable
+            role={role}
+            rows={rows}
+            onUpdate={onUpdate}
+            onQuickView={onQuickView}
+            onExport={onExport}
+            variant={variant}
+            showProgress={showProgress}
+          />
         ) : null}
       </div>
 
       <div className="flex flex-col gap-4 lg:hidden">
         {rows.map((r) => (
-          <DonationMobileCard key={r.id} r={r} role={role} onUpdate={onUpdate} onQuickView={onQuickView} />
+          <DonationMobileCard key={r.id} r={r} role={role} onUpdate={onUpdate} onQuickView={onQuickView} showProgress={showProgress} />
         ))}
       </div>
     </div>

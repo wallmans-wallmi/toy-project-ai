@@ -8,6 +8,7 @@ export type AdminAccountRole = "admin" | "superadmin";
 export function useAdminSession() {
   const [role, setRole] = useState<AdminDashboardRole | null>(null);
   const [accountRole, setAccountRole] = useState<AdminAccountRole | null>(null);
+  const [canEditAdminCredentials, setCanEditAdminCredentials] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -18,6 +19,7 @@ export function useAdminSession() {
       if (res.status === 401) {
         setRole(null);
         setAccountRole(null);
+        setCanEditAdminCredentials(false);
         setEmail(null);
         return;
       }
@@ -25,13 +27,16 @@ export function useAdminSession() {
         role?: AdminDashboardRole;
         email?: string | null;
         accountRole?: AdminAccountRole;
+        canEditAdminCredentials?: boolean;
       };
       setRole(data.role ?? "admin");
       setAccountRole(data.accountRole ?? "admin");
+      setCanEditAdminCredentials(Boolean(data.canEditAdminCredentials));
       setEmail(data.email ?? null);
     } catch {
       setRole("admin");
       setAccountRole("admin");
+      setCanEditAdminCredentials(false);
       setEmail(null);
     } finally {
       setLoading(false);
@@ -42,5 +47,5 @@ export function useAdminSession() {
     void refreshSession();
   }, [refreshSession]);
 
-  return { role, accountRole, email, loading, refreshSession };
+  return { role, accountRole, canEditAdminCredentials, email, loading, refreshSession };
 }

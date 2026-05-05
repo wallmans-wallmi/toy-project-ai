@@ -24,3 +24,14 @@ export async function getAccountRoleForUser(
   const { data } = await supabase.from("admin_users").select("role").eq("id", userId).maybeSingle();
   return data?.role === "superadmin" ? "superadmin" : "admin";
 }
+
+/** עריכת אימייל/סיסמה לצוות — רק סשן v2 + הרשאת ניהול צוות + חשבון admin/superadmin */
+export async function sessionCanEditAdminCredentials(
+  supabase: SupabaseClient,
+  session: AdminSessionInfo | null,
+): Promise<boolean> {
+  if (!session || !(await canAccessTeamManagement(supabase, session))) return false;
+  if (session.kind !== "v2" || session.sub === "legacy") return false;
+  const ar = await getAccountRoleForUser(supabase, session.sub);
+  return ar === "admin" || ar === "superadmin";
+}

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ADMIN_SESSION_COOKIE, getAdminSessionFromCookie, verifyAdminSessionCookie } from "@/lib/admin-auth";
-import { canAccessTeamManagement } from "@/lib/admin-team-access";
+import { canAccessTeamManagement, sessionCanEditAdminCredentials } from "@/lib/admin-team-access";
 import { upsertAdminProfile } from "@/lib/admin-profile-service";
 import type { AdminDashboardRole } from "@/lib/admin-role-types";
 import { hashAdminPassword, normalizeAdminEmail } from "@/lib/admin-user-service";
@@ -57,6 +57,10 @@ export async function PATCH(req: Request, context: RouteContext) {
   const hasLogistics = parsed.data.logisticsRole !== undefined;
   if (!hasUserFields && !hasLogistics) {
     return NextResponse.json({ error: "אין מה לעדכן" }, { status: 400 });
+  }
+
+  if (hasUserFields && !(await sessionCanEditAdminCredentials(supabase, session))) {
+    return NextResponse.json({ error: "אין הרשאה לעריכת אימייל או סיסמה" }, { status: 403 });
   }
 
   const patch: Record<string, string> = {};

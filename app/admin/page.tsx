@@ -1,8 +1,8 @@
 import { AdminDashboardClient } from "@/components/admin/AdminDashboardClient";
 
 /**
- * לוח ניהול תרומות — `/admin`
- * ניהול צוות (טאב «צוות») מוטמע ב־`AdminDashboardClient` / `AdminDashboardTabs`.
+ * לוח ניהול לוגיסטיקה — `/admin`
+ * שישה טאבים (כל ההזמנות, משלוחים היום, מכתבים, ארכיון, צוות, אנליטיקס), סינון ופסי התקדמות — ב־`AdminDashboardClient`.
  */
 export default function AdminPage() {
   return <AdminDashboardClient />;

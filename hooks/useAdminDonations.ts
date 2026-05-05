@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatToyItemsForAdmin } from "@/lib/admin-donation-display";
+import { computeLogisticsAnalytics } from "@/lib/admin-logistics-analytics";
 
 export type AdminDonationPatch = {
   payment_status?: string;
@@ -244,8 +245,11 @@ export function useAdminDonations() {
     void refresh();
   }, [refresh]);
 
+  const analytics = useMemo(() => computeLogisticsAnalytics(rows), [rows]);
+
   return {
     rows,
+    analytics,
     loading,
     error,
     needLogin,
