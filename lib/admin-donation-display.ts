@@ -63,3 +63,10 @@ export function formatToyItemsForAdmin(toyItems: unknown): string {
   }
   return lines.length ? lines.join(" | ") : "אין פירוט";
 }
+
+/** רשימת שורות לתצוגת כרטיס מסלול (מבוסס על אותו פירוק כמו formatToyItemsForAdmin) */
+export function toyItemsLinesForRoute(toyItems: unknown): string[] {
+  const flat = formatToyItemsForAdmin(toyItems);
+  if (flat.startsWith("אין")) return [];
+  return flat.split(" | ").map((s) => s.trim()).filter(Boolean);
+}

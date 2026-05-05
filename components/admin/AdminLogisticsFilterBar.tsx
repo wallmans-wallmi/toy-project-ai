@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AdminDonationRow } from "@/hooks/useAdminDonations";
 import type { DonationMultiFilterState } from "@/lib/admin-logistics-dashboard";
-import { LETTER_FILTER_OPTIONS, PICKUP_FILTER_OPTIONS, uniqueCitiesFromRows } from "@/lib/admin-logistics-dashboard";
+import { DELIVERY_FILTER_OPTIONS, LETTER_FILTER_OPTIONS, PICKUP_FILTER_OPTIONS, uniqueCitiesFromRows } from "@/lib/admin-logistics-dashboard";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 
@@ -12,6 +12,11 @@ function lblPickup(v: string) {
   const m: Record<string, string> = { pending: "ממתין לאיסוף", picked_up: "נאסף", failed: "נכשל" };
   return m[v] ?? v;
 }
+function lblDeliveryFilter(v: string) {
+  const m: Record<string, string> = { at_warehouse: "במחסן", sent_to_ngo: "בדרך לעמותה", delivered: "הגיע לעמותה" };
+  return m[v] ?? v;
+}
+
 function lblLetter(v: string) {
   const m: Record<string, string> = {
     pending: "ממתין",
@@ -88,14 +93,20 @@ export function AdminLogisticsFilterBar({ allRows, filters, onChange, search, on
     else set.add(l);
     onChange({ ...filters, letterStatuses: [...set] });
   }
+  function toggleDelivery(d: string) {
+    const set = new Set(filters.deliveryStatuses);
+    if (set.has(d)) set.delete(d);
+    else set.add(d);
+    onChange({ ...filters, deliveryStatuses: [...set] });
+  }
 
   function clearAll() {
-    onChange({ cities: [], pickupStatuses: [], letterStatuses: [] });
+    onChange({ cities: [], pickupStatuses: [], letterStatuses: [], deliveryStatuses: [] });
   }
 
   const chip =
-    filters.cities.length + filters.pickupStatuses.length + filters.letterStatuses.length > 0
-      ? filters.cities.length + filters.pickupStatuses.length + filters.letterStatuses.length
+    filters.cities.length + filters.pickupStatuses.length + filters.letterStatuses.length + filters.deliveryStatuses.length > 0
+      ? filters.cities.length + filters.pickupStatuses.length + filters.letterStatuses.length + filters.deliveryStatuses.length
       : null;
 
   return (
@@ -140,6 +151,20 @@ export function AdminLogisticsFilterBar({ allRows, filters, onChange, search, on
           </PopoverTrigger>
           <PopoverContent className="w-52 p-0" align="start">
             <MultiList options={LETTER_FILTER_OPTIONS as unknown as string[]} selected={filters.letterStatuses} toggle={toggleLetter} labelFn={lblLetter} />
+          </PopoverContent>
+        </Popover>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="outline" size="sm" className="rounded-xl border-[#9333EA]/30 text-[11px] font-bold text-[#581c87]">
+              משלוח לעמותה
+              <ChevronDown className="ms-1 size-3" aria-hidden />
+              {filters.deliveryStatuses.length ? (
+                <span className="me-1 rounded-full bg-[#ec4899] px-1.5 py-0 text-[9px] text-white">{filters.deliveryStatuses.length}</span>
+              ) : null}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-0" align="start">
+            <MultiList options={DELIVERY_FILTER_OPTIONS as unknown as string[]} selected={filters.deliveryStatuses} toggle={toggleDelivery} labelFn={lblDeliveryFilter} />
           </PopoverContent>
         </Popover>
         {chip ? (

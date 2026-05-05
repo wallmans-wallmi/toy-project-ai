@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 
 export function AdminDashboardClient() {
-  const { rows, analytics, loading, error, needLogin, login, logout, updateDonation, exportCsv } = useAdminDonations();
-  const { role, accountRole, loading: sessionLoading, refreshSession } = useAdminSession();
+  const { rows, loading, error, needLogin, login, logout, updateDonation, exportCsv } = useAdminDonations();
+  const { role, accountRole, email: sessionEmail, username: sessionUsername, loading: sessionLoading, refreshSession } = useAdminSession();
   const [quickRow, setQuickRow] = useState<AdminDonationRow | null>(null);
 
   useEffect(() => {
@@ -47,7 +47,20 @@ export function AdminDashboardClient() {
         <div>
           <h1 className="text-[16px] font-bold text-[#581c87]">לוגיסטיקה ותרומות</h1>
           <p className="text-[12px] text-slate-600">
-            {sessionLoading ? "טוענים הרשאות…" : `מחוברים כ־${effectiveRole === "driver" ? "נהג/ת" : effectiveRole === "office" ? "משרד" : "אדמין"}`}
+            {sessionLoading ? (
+              "טוענים הרשאות…"
+            ) : (
+              <>
+                <span className="font-bold text-[#581c87]">
+                  {sessionUsername?.trim() ||
+                    (sessionEmail?.includes("@") ? sessionEmail.split("@")[0] : sessionEmail) ||
+                    "משתמש/ת"}
+                </span>
+                {" · "}
+                {effectiveRole === "driver" ? "נהג/ת" : effectiveRole === "office" ? "משרד" : "אדמין"}
+                {effectiveAccountRole === "superadmin" ? " · סופר־אדמין" : ""}
+              </>
+            )}
           </p>
         </div>
         <Button type="button" variant="outline" className="rounded-xl border-slate-300 text-[12px]" onClick={() => void logout()}>
@@ -72,7 +85,6 @@ export function AdminDashboardClient() {
             role={effectiveRole}
             accountRole={effectiveAccountRole}
             rows={rows}
-            analytics={analytics}
             onUpdate={updateDonation}
             onQuickView={setQuickRow}
             onExport={exportCsv}

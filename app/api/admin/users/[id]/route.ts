@@ -5,6 +5,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionFromCookie, verifyAdminSessionCook
 import { canAccessTeamManagement, sessionCanEditAdminCredentials } from "@/lib/admin-team-access";
 import { upsertAdminProfile } from "@/lib/admin-profile-service";
 import type { AdminDashboardRole } from "@/lib/admin-role-types";
+import { isUndefinedColumnError } from "@/lib/admin-users-schema-compat";
 import { hashAdminPassword, normalizeAdminEmail } from "@/lib/admin-user-service";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
@@ -15,6 +16,8 @@ const patchSchema = z.object({
   password: z.string().min(8).optional(),
   role: z.enum(["admin", "superadmin"]).optional(),
   logisticsRole: z.enum(["admin", "office", "driver"]).optional(),
+  /** שם תצוגה — ריק מנקה; לא משפיע על כניסה */
+  username: z.string().max(80).optional(),
 });
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -52,18 +55,19 @@ export async function PATCH(req: Request, context: RouteContext) {
   if (!parsed.success) {
     return NextResponse.json({ error: "נתונים לא תקינים" }, { status: 400 });
   }
-  const hasUserFields =
+  const hasCredentialFields =
     parsed.data.email !== undefined || parsed.data.password !== undefined || parsed.data.role !== undefined;
   const hasLogistics = parsed.data.logisticsRole !== undefined;
-  if (!hasUserFields && !hasLogistics) {
+  const hasUsername = parsed.data.username !== undefined;
+  if (!hasCredentialFields && !hasLogistics && !hasUsername) {
     return NextResponse.json({ error: "אין מה לעדכן" }, { status: 400 });
   }
 
-  if (hasUserFields && !(await sessionCanEditAdminCredentials(supabase, session))) {
+  if (hasCredentialFields && !(await sessionCanEditAdminCredentials(supabase, session))) {
     return NextResponse.json({ error: "אין הרשאה לעריכת אימייל או סיסמה" }, { status: 403 });
   }
 
-  const patch: Record<string, string> = {};
+  const patch: Record<string, string | null> = {};
   if (parsed.data.email !== undefined) {
     const em = normalizeAdminEmail(parsed.data.email);
     if (!em.includes("@")) {
@@ -77,10 +81,23 @@ export async function PATCH(req: Request, context: RouteContext) {
   if (parsed.data.role !== undefined) {
     patch.role = parsed.data.role;
   }
+  if (hasUsername) {
+    const u = parsed.data.username!.trim();
+    patch.username = u === "" ? null : u.slice(0, 80);
+  }
 
   try {
     if (Object.keys(patch).length > 0) {
-      const { error } = await supabase.from("admin_users").update(patch).eq("id", id);
+      let { error } = await supabase.from("admin_users").update(patch).eq("id", id);
+      if (error && patch.username !== undefined && isUndefinedColumnError(error)) {
+        const { username: _drop, ...rest } = patch;
+        if (Object.keys(rest).length > 0) {
+          const second = await supabase.from("admin_users").update(rest).eq("id", id);
+          error = second.error;
+        } else {
+          error = null;
+        }
+      }
       if (error) {
         if (error.code === "23505") {
           return NextResponse.json({ error: "האימייל תפוס" }, { status: 409 });

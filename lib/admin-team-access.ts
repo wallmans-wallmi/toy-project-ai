@@ -25,13 +25,16 @@ export async function getAccountRoleForUser(
   return data?.role === "superadmin" ? "superadmin" : "admin";
 }
 
-/** עריכת אימייל/סיסמה לצוות — רק סשן v2 + הרשאת ניהול צוות + חשבון admin/superadmin */
+/**
+ * עריכת אימייל/סיסמה / הגדרת סיסמה ביצירה:
+ * - `admin` ב־admin_profiles (משקף JWT `session.role`)
+ * - או `superadmin` ב־admin_users (חשבון), גם אם בפרופיל לוגיסטיקה office/driver
+ */
 export async function sessionCanEditAdminCredentials(
   supabase: SupabaseClient,
   session: AdminSessionInfo | null,
 ): Promise<boolean> {
-  if (!session || !(await canAccessTeamManagement(supabase, session))) return false;
-  if (session.kind !== "v2" || session.sub === "legacy") return false;
-  const ar = await getAccountRoleForUser(supabase, session.sub);
-  return ar === "admin" || ar === "superadmin";
+  if (!session || session.kind !== "v2" || session.sub === "legacy") return false;
+  if (session.role === "admin") return true;
+  return (await getAccountRoleForUser(supabase, session.sub)) === "superadmin";
 }

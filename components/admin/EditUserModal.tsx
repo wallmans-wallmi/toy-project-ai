@@ -16,6 +16,8 @@ type Props = {
 };
 
 function displayName(m: TeamMemberRow): string {
+  const u = m.username?.trim();
+  if (u) return u;
   const e = m.email.trim();
   const at = e.indexOf("@");
   return at > 0 ? e.slice(0, at) : e;
@@ -25,6 +27,7 @@ export function EditUserModal({ member, open, onClose, onSaved }: Props) {
   const emailId = useId();
   const passId = useId();
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [localErr, setLocalErr] = useState<string | null>(null);
@@ -32,6 +35,7 @@ export function EditUserModal({ member, open, onClose, onSaved }: Props) {
   useEffect(() => {
     if (member) {
       setEmail(member.email);
+      setUsername(member.username ?? "");
       setPassword("");
       setLocalErr(null);
     }
@@ -48,7 +52,9 @@ export function EditUserModal({ member, open, onClose, onSaved }: Props) {
         return;
       }
       const pwd = password.trim();
-      if (trimmed === member.email && pwd === "") {
+      const nameTrim = username.trim();
+      const prevName = (member.username ?? "").trim();
+      if (trimmed === member.email && pwd === "" && nameTrim === prevName) {
         setLocalErr("אין מה לעדכן — שינו משהו או סגרו בנימוס");
         return;
       }
@@ -61,6 +67,7 @@ export function EditUserModal({ member, open, onClose, onSaved }: Props) {
         const body: Record<string, string> = {};
         if (trimmed !== member.email) body.email = trimmed;
         if (pwd !== "") body.password = pwd;
+        if (nameTrim !== prevName) body.username = nameTrim;
         const res = await fetch(`/api/admin/users/${member.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -72,13 +79,21 @@ export function EditUserModal({ member, open, onClose, onSaved }: Props) {
           setLocalErr(data.error ?? "לא נשמר");
           return;
         }
-        onSaved(`אחותי, הפרטים של ${displayName(member)} עודכנו בסטייל! ✨`);
+        const didPw = pwd !== "";
+        const didEmail = trimmed !== member.email;
+        if (didPw && !didEmail) {
+          onSaved("אחותי, הסיסמה עודכנה! אל תשכחי לעדכן את העובד 😉");
+        } else if (didPw && didEmail) {
+          onSaved("אחותי, הסיסמה עודכנה! אל תשכחי לעדכן את העובד 😉");
+        } else {
+          onSaved(`אחותי, הפרטים של ${displayName(member)} עודכנו בסטייל! ✨`);
+        }
         onClose();
       } finally {
         setBusy(false);
       }
     },
-    [member, email, password, onClose, onSaved],
+    [member, email, username, password, onClose, onSaved],
   );
 
   if (!open || !member) return null;
@@ -94,17 +109,21 @@ export function EditUserModal({ member, open, onClose, onSaved }: Props) {
               {localErr}
             </p>
           ) : null}
-          <div>
+          <div className="text-start">
+            <Label className="text-[11px] font-bold text-slate-800">שם משתמש (תצוגה בלבד)</Label>
+            <Input className="mt-1 rounded-xl border-slate-200 text-start" value={username} onChange={(e) => setUsername(e.target.value)} maxLength={80} autoComplete="off" placeholder="ריק = בלי שם תצוגה" />
+          </div>
+          <div className="text-start">
             <Label htmlFor={emailId} className="text-[11px] font-bold text-slate-800">
-              אימייל
+              אימייל (לכניסה)
             </Label>
             <Input id={emailId} type="email" required className="mt-1 rounded-xl border-slate-200 text-start" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
           </div>
-          <div>
+          <div className="text-start">
             <Label htmlFor={passId} className="text-[11px] font-bold text-slate-800">
               סיסמה חדשה (ריק = לא משנים)
             </Label>
-            <PasswordField id={passId} className="mt-1 rounded-xl border-slate-200 text-start" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" placeholder="לפחות 8 תווים אם ממלאים" />
+            <PasswordField id={passId} className="mt-1 rounded-xl border-slate-200" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" placeholder="לפחות 8 תווים אם ממלאים" />
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1 rounded-xl border-[#ec4899]/40 text-[#ec4899] hover:bg-pink-50" onClick={onClose}>

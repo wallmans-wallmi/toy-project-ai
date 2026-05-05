@@ -5,7 +5,6 @@ import {
   type DonationCheckoutRequestBody,
   validateDonationCheckoutLead,
 } from "@/lib/donation-journey";
-import { scheduleDonationLetterAfterLeadCapture } from "@/lib/donation-letter";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -47,7 +46,7 @@ export async function POST(req: Request) {
       );
     }
 
-    scheduleDonationLetterAfterLeadCapture(donation.id);
+    /** מכתב AI — רק אחרי תשלום מוצלח (webhook Stripe) */
 
     return NextResponse.json(buildCheckoutLeadCaptureApiPayload(donation.id, validated.ok));
   } catch (e) {

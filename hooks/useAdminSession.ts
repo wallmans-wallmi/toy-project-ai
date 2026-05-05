@@ -10,6 +10,7 @@ export function useAdminSession() {
   const [accountRole, setAccountRole] = useState<AdminAccountRole | null>(null);
   const [canEditAdminCredentials, setCanEditAdminCredentials] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refreshSession = useCallback(async () => {
@@ -21,11 +22,13 @@ export function useAdminSession() {
         setAccountRole(null);
         setCanEditAdminCredentials(false);
         setEmail(null);
+        setUsername(null);
         return;
       }
       const data = (await res.json()) as {
         role?: AdminDashboardRole;
         email?: string | null;
+        username?: string | null;
         accountRole?: AdminAccountRole;
         canEditAdminCredentials?: boolean;
       };
@@ -33,11 +36,13 @@ export function useAdminSession() {
       setAccountRole(data.accountRole ?? "admin");
       setCanEditAdminCredentials(Boolean(data.canEditAdminCredentials));
       setEmail(data.email ?? null);
+      setUsername(typeof data.username === "string" && data.username.trim() ? data.username.trim() : null);
     } catch {
       setRole("admin");
       setAccountRole("admin");
       setCanEditAdminCredentials(false);
       setEmail(null);
+      setUsername(null);
     } finally {
       setLoading(false);
     }
@@ -47,5 +52,5 @@ export function useAdminSession() {
     void refreshSession();
   }, [refreshSession]);
 
-  return { role, accountRole, canEditAdminCredentials, email, loading, refreshSession };
+  return { role, accountRole, canEditAdminCredentials, email, username, loading, refreshSession };
 }

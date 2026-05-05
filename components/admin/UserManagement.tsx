@@ -37,6 +37,7 @@ export function UserManagement({ onNotify }: UserManagementProps) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [newEmail, setNewEmail] = useState("");
+  const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newLogistics, setNewLogistics] = useState<AdminDashboardRole>("admin");
   const [busy, setBusy] = useState(false);
@@ -107,6 +108,7 @@ export function UserManagement({ onNotify }: UserManagementProps) {
         credentials: "include",
         body: JSON.stringify({
           email: newEmail,
+          username: newUsername.trim() || undefined,
           password: newPassword,
           role: "admin",
           logisticsRole: newLogistics,
@@ -118,6 +120,7 @@ export function UserManagement({ onNotify }: UserManagementProps) {
         return;
       }
       setNewEmail("");
+      setNewUsername("");
       setNewPassword("");
       setNewLogistics("admin");
       onNotify?.("הצטרפות חמה לצוות — המשתמש נוצר, תשלחו לו סיסמה בסיגנל");
@@ -140,32 +143,50 @@ export function UserManagement({ onNotify }: UserManagementProps) {
         </p>
       ) : null}
 
-      <form className="rounded-2xl border border-[#9333EA]/20 bg-white p-4 shadow-sm" onSubmit={addMember}>
-        <p className="text-[13px] font-bold text-slate-900">הוספת איש צוות</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label className="text-[11px]">אימייל</Label>
-            <Input className="mt-1 rounded-xl border-slate-200" type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} autoComplete="off" />
+      {canEditAdminCredentials ? (
+        <form className="rounded-2xl border border-[#9333EA]/20 bg-white p-4 shadow-sm" onSubmit={addMember}>
+          <p className="text-[13px] font-bold text-slate-900">הוספת איש צוות</p>
+          <p className="mt-1 text-[11px] text-slate-600">כניסה לאזור: אימייל וסיסמה. שם המשתמש מוצג בכותרת בלבד.</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="text-start">
+              <Label className="text-[11px]">שם משתמש (תצוגה)</Label>
+              <Input
+                className="mt-1 rounded-xl border-slate-200 text-start"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                maxLength={80}
+                autoComplete="off"
+                placeholder="למשל רות, יוסי…"
+              />
+            </div>
+            <div className="text-start">
+              <Label className="text-[11px]">אימייל (לכניסה)</Label>
+              <Input className="mt-1 rounded-xl border-slate-200 text-start" type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} autoComplete="off" />
+            </div>
+            <div className="text-start sm:col-span-2">
+              <Label htmlFor={newPassId} className="text-[11px]">
+                סיסמה ראשונית
+              </Label>
+              <PasswordField id={newPassId} className="mt-1 rounded-xl border-slate-200" required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" placeholder="לפחות 8 תווים" />
+            </div>
+            <div className="text-start sm:col-span-2">
+              <Label className="text-[11px]">תפקיד במערכת (לוגיסטיקה)</Label>
+              <select className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px]" value={newLogistics} onChange={(e) => setNewLogistics(e.target.value as AdminDashboardRole)}>
+                <option value="admin">אדמין</option>
+                <option value="office">משרד</option>
+                <option value="driver">נהג/ת</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <Label htmlFor={newPassId} className="text-[11px]">
-              סיסמה ראשונית
-            </Label>
-            <PasswordField id={newPassId} className="mt-1 rounded-xl border-slate-200" required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
-          </div>
-          <div className="sm:col-span-2">
-            <Label className="text-[11px]">תפקיד במערכת (לוגיסטיקה)</Label>
-            <select className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px]" value={newLogistics} onChange={(e) => setNewLogistics(e.target.value as AdminDashboardRole)}>
-              <option value="admin">אדמין</option>
-              <option value="office">משרד</option>
-              <option value="driver">נהג/ת</option>
-            </select>
-          </div>
-        </div>
-        <Button type="submit" disabled={busy} className="mt-4 w-full rounded-xl bg-[#9333EA] font-bold text-white hover:bg-[#7c3aed] sm:w-auto">
-          {busy ? "יוצרים…" : "הוספה לצוות"}
-        </Button>
-      </form>
+          <Button type="submit" disabled={busy} className="mt-4 w-full rounded-xl bg-[#9333EA] font-bold text-white hover:bg-[#7c3aed] sm:w-auto">
+            {busy ? "יוצרים…" : "הוספה לצוות"}
+          </Button>
+        </form>
+      ) : (
+        <p className="rounded-2xl border border-dashed border-[#9333EA]/25 bg-white/80 px-4 py-3 text-center text-[12px] text-slate-600">
+          הוספת משתמש עם סיסמה זמינה רק לאדמין לוגיסטיקה או לסופר־אדמין בחשבון — ככה שומרים על הסיסמאות בסטייל
+        </p>
+      )}
 
       {loading ? <p className="text-center text-[13px] text-slate-600">טוענים את ההייררכיה…</p> : null}
 
@@ -174,7 +195,8 @@ export function UserManagement({ onNotify }: UserManagementProps) {
           <li key={m.id} className="rounded-2xl border border-[#9333EA]/15 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <p className="text-[14px] font-bold text-slate-900">{m.email}</p>
+                <p className="text-[16px] font-bold text-slate-900">{m.username?.trim() || m.email}</p>
+                <p className="text-[12px] text-slate-600">{m.username?.trim() ? m.email : null}</p>
                 <p className="text-[11px] text-slate-500">חשבון: {m.account_role === "superadmin" ? "סופר־אדמין" : "אדמין"}</p>
               </div>
               <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-bold", badgeClass(m.logistics_role))}>{labelLogistics(m.logistics_role)}</span>

@@ -21,6 +21,7 @@ const SELECT_FIELDS = [
   "toy_items",
   "toy_description",
   "ai_generated_letter",
+  "ai_letter_content",
   "scheduled_region",
   "scheduled_slot",
   "pickup_city",

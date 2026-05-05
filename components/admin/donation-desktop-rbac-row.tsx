@@ -1,6 +1,7 @@
 "use client";
 
 import { DonationProgressTrackers } from "@/components/admin/donation-progress-trackers";
+import { LetterRowQuickActions } from "@/components/admin/letter-row-quick-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { AdminDashboardRole } from "@/lib/admin-role-types";
@@ -39,6 +40,8 @@ export function DonationDesktopRbacRow({
   variant,
   showProgress,
   colSpan,
+  lettersQueueMode = false,
+  onLetterPreview,
 }: {
   r: AdminDonationRow;
   role: AdminDashboardRole;
@@ -47,6 +50,8 @@ export function DonationDesktopRbacRow({
   variant: "default" | "all";
   showProgress: boolean;
   colSpan: number;
+  lettersQueueMode?: boolean;
+  onLetterPreview?: (title: string, body: string) => void;
 }) {
   const canLog = role === "admin" || role === "driver";
   const canOffice = role === "admin" || role === "office";
@@ -55,6 +60,7 @@ export function DonationDesktopRbacRow({
   const [ln, setLn] = useState(r.last_name ?? "");
   const loc = (r.pickup_location || r.address || "").trim();
   const tel = telHref(r.phone);
+  const donorLine = [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || "משפחה —";
 
   useEffect(() => {
     setFn(r.first_name ?? "");
@@ -63,12 +69,17 @@ export function DonationDesktopRbacRow({
 
   return (
     <>
-      <tr className="align-top text-[11px] hover:bg-violet-50/40">
-        <td className="px-2 py-2 font-medium text-slate-900">{r.child_name || "—"}</td>
-        <td className="max-w-[100px] truncate px-2 py-2 text-slate-600" title={formatToyItemsLine(r)}>
+      <tr className="align-top text-[12px] hover:bg-violet-50/40">
+        <td className="px-2 py-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[16px] font-bold leading-tight text-slate-900">{r.child_name || "—"}</span>
+            <span className="text-[12px] text-slate-500">{donorLine}</span>
+          </div>
+        </td>
+        <td className="max-w-[120px] truncate px-2 py-2 text-[12px] text-slate-700" title={formatToyItemsLine(r)}>
           {formatToyItemsLine(r)}
         </td>
-        <td className="px-2 py-2 text-slate-500">{getDonationJourneyLabel(r.journey_type ?? "")}</td>
+        <td className="px-2 py-2 text-[12px] text-slate-600">{getDonationJourneyLabel(r.journey_type ?? "")}</td>
         {variant === "all" ? (
           <>
             <td className="max-w-[88px] truncate px-2 py-2 text-slate-600" title={extractCityKey(r)}>
@@ -97,9 +108,9 @@ export function DonationDesktopRbacRow({
           </div>
         </td>
         <td className="px-2 py-2">
-          <div className="grid gap-0.5 text-[10px]">
+          <div className="grid gap-0.5 text-[12px] font-medium text-slate-800">
             <span>{r.pickup_date || "—"}</span>
-            <span>{fmtTime(r.pickup_time) || "—"}</span>
+            <span className="text-[12px] text-slate-500">{fmtTime(r.pickup_time) || "—"}</span>
           </div>
         </td>
         <td className="px-2 py-2">
@@ -123,7 +134,7 @@ export function DonationDesktopRbacRow({
         </td>
         <td className="px-2 py-2">
           {canOffice ? (
-            <select className="w-full rounded-lg border border-slate-200 px-1 py-1" value={r.letter_status ?? "pending"} onChange={(e) => void onUpdate(r.id, { letter_status: e.target.value })}>
+            <select className="w-full rounded-lg border border-slate-200 px-1 py-1 text-[12px]" value={r.letter_status ?? "pending"} onChange={(e) => void onUpdate(r.id, { letter_status: e.target.value })}>
               {LETTER_OPTS.map((o) => (
                 <option key={o} value={o}>
                   {o}
@@ -131,9 +142,14 @@ export function DonationDesktopRbacRow({
               ))}
             </select>
           ) : (
-            <span>{r.letter_status}</span>
+            <span className="text-[12px]">{r.letter_status}</span>
           )}
         </td>
+        {lettersQueueMode && onLetterPreview ? (
+          <td className="px-1 py-2 align-middle">
+            <LetterRowQuickActions r={r} role={role} onPreview={onLetterPreview} />
+          </td>
+        ) : null}
         <td className="px-2 py-2">
           {canOffice ? (
             <div className="grid gap-1">

@@ -11,7 +11,6 @@ export function AdminLogisticsAnalytics({ analytics }: Props) {
     <div className="space-y-4 rounded-2xl border border-[#9333EA]/20 bg-white p-4 shadow-sm" dir="rtl" lang="he">
       <div>
         <h2 className="text-[16px] font-bold text-[#581c87]">אנליטיקס — מבט על</h2>
-        <p className="text-[12px] text-slate-600">מספרים שמדברים בעדינות, בלי להתייפייפ</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-[#9333EA]/15 bg-[#F9F5FF] p-3">

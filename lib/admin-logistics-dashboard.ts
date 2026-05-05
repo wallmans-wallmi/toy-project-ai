@@ -7,10 +7,12 @@ export type DonationMultiFilterState = {
   cities: string[];
   pickupStatuses: string[];
   letterStatuses: string[];
+  deliveryStatuses: string[];
 };
 
 export const PICKUP_FILTER_OPTIONS = ["pending", "picked_up", "failed"] as const;
 export const LETTER_FILTER_OPTIONS = ["pending", "generated", "sent", "completed", "failed"] as const;
+export const DELIVERY_FILTER_OPTIONS = ["at_warehouse", "sent_to_ngo", "delivered"] as const;
 
 export function filterDonationsBySearch(rows: AdminDonationRow[], q: string): AdminDonationRow[] {
   const s = q.trim().toLowerCase();
@@ -44,11 +46,12 @@ export function isTodayShipmentRow(r: AdminDonationRow): boolean {
   return (r.pickup_date ?? "") === today && (r.pickup_status ?? "pending") !== "failed";
 }
 
-/** מכתבים: הגיע לעמותה + מכתב עדיין בתור */
+/** מכתבים: שולם, פריטים אצל העמותה, מכתב עדיין לא נסגר (לא נשלח / לא הושלם) */
 export function isLettersTabRow(r: AdminDonationRow): boolean {
+  const paid = (r.payment_status ?? "") === "completed";
   const ds = r.delivery_status ?? "";
   const ls = r.letter_status ?? "pending";
-  return ds === "delivered" && ls !== "completed" && ls !== "failed";
+  return paid && ds === "delivered" && ls !== "sent" && ls !== "completed";
 }
 
 /** ארכיון: פריטים אצל העמותה + מכתב נשלח/הושלם */
@@ -78,6 +81,10 @@ export function applyDonationMultiFilters(rows: AdminDonationRow[], f: DonationM
   if (f.letterStatuses.length > 0) {
     const ls = new Set(f.letterStatuses);
     out = out.filter((r) => ls.has(r.letter_status ?? "pending"));
+  }
+  if (f.deliveryStatuses.length > 0) {
+    const ds = new Set(f.deliveryStatuses);
+    out = out.filter((r) => ds.has(r.delivery_status ?? ""));
   }
   return out;
 }

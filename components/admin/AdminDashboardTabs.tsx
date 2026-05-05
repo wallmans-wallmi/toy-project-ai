@@ -1,12 +1,14 @@
 "use client";
 
+import { AdminAnalyticsKpiHome } from "@/components/admin/AdminAnalyticsKpiHome";
 import { AdminLogisticsAnalytics } from "@/components/admin/AdminLogisticsAnalytics";
 import { AdminLogisticsFilterBar } from "@/components/admin/AdminLogisticsFilterBar";
 import { DonationTable } from "@/components/admin/DonationTable";
 import { UserManagement } from "@/components/admin/UserManagement";
 import type { AdminDonationRow } from "@/hooks/useAdminDonations";
 import type { AdminAccountRole } from "@/hooks/useAdminSession";
-import type { LogisticsAnalytics } from "@/lib/admin-logistics-analytics";
+import { kpiNavigationFor, useAdminStats, type AdminKpiId } from "@/hooks/useAdminStats";
+import { computeLogisticsAnalytics } from "@/lib/admin-logistics-analytics";
 import type { AdminDashboardRole } from "@/lib/admin-role-types";
 import {
   applyDonationMultiFilters,
@@ -23,34 +25,37 @@ type TabKey = LogisticsDonationTabId | ExtraTab;
 
 const DONATION_TABS: { id: LogisticsDonationTabId; label: string; sub: string }[] = [
   { id: "all", label: "כל ההזמנות", sub: "הכול על השולחן — עם סינונים חכמים" },
-  { id: "today", label: "משלוחים היום", sub: "מה שמתוכנן להיום, בלי כישלונות איסוף" },
-  { id: "letters", label: "מכתבים", sub: "כבר אצל העמותה — מחכים למכתב" },
+  { id: "today", label: "מסלול היום", sub: "לפי שעת איסוף — כתובת, פריטים, חיוג, וסטטוס בכרטיס אחד" },
+  { id: "letters", label: "מכתבים", sub: "תור אחרי תשלום והגעה לעמותה — צפייה, שליחה, הדפסה" },
   { id: "archive", label: "ארכיון", sub: "סגור וחתום — מכתב נשלח והגיע" },
 ];
 
 const DONATION_KEYS = new Set<TabKey>(["all", "today", "letters", "archive"]);
 
-const EMPTY_FILTERS: DonationMultiFilterState = { cities: [], pickupStatuses: [], letterStatuses: [] };
+const EMPTY_FILTERS: DonationMultiFilterState = { cities: [], pickupStatuses: [], letterStatuses: [], deliveryStatuses: [] };
 
 type Props = {
   role: AdminDashboardRole;
   accountRole: AdminAccountRole;
   rows: AdminDonationRow[];
-  analytics: LogisticsAnalytics;
   onUpdate: (id: string, patch: import("@/hooks/useAdminDonations").AdminDonationPatch) => Promise<boolean>;
   onQuickView: (row: AdminDonationRow) => void;
   onExport: () => void;
 };
 
-export function AdminDashboardTabs({ role, accountRole, rows, analytics, onUpdate, onQuickView, onExport }: Props) {
-  const [tab, setTab] = useState<TabKey>("all");
+export function AdminDashboardTabs({ role, accountRole, rows, onUpdate, onQuickView, onExport }: Props) {
+  const showTeamTab = role === "admin" || accountRole === "superadmin";
+  const showAnalyticsTab = role === "admin";
+  const showDonationChrome = role !== "driver";
+
+  const [tab, setTab] = useState<TabKey>(() => (showAnalyticsTab ? "analytics" : "all"));
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<DonationMultiFilterState>(EMPTY_FILTERS);
   const [teamNotify, setTeamNotify] = useState<string | null>(null);
 
-  const showTeamTab = role === "admin" || accountRole === "superadmin";
-  const showAnalyticsTab = role === "admin";
-  const showDonationChrome = role !== "driver";
+  const { dateRange, setDateRange, kpiRows, kpis, setTodayIsrael, clearDateRange } = useAdminStats({ rows });
+
+  const scopedAnalytics = useMemo(() => computeLogisticsAnalytics(kpiRows), [kpiRows]);
 
   const baseByTab = useMemo(() => {
     if (!DONATION_KEYS.has(tab)) return [];
@@ -70,18 +75,15 @@ export function AdminDashboardTabs({ role, accountRole, rows, analytics, onUpdat
     return filterDonationsBySearch(afterMulti, q);
   }, [afterMulti, search, tab]);
 
+  function handleKpiNavigate(id: AdminKpiId) {
+    const { tab: t, filters: f } = kpiNavigationFor(id);
+    setFilters(f);
+    setTab(t);
+  }
+
   return (
     <div className="space-y-4">
-      {showDonationChrome ? (
-        <div className="rounded-2xl border border-[#9333EA]/15 bg-white/80 p-3 shadow-sm">
-          <p className="text-[11px] font-bold text-[#581c87]">
-            {role === "office" && "היי משרד — מכתבים ותיקוני תורם, בלי בירוקרטיה"}
-            {role === "admin" && "היי בוסית — שישה טאבים, שני פסי התקדמות, מצב רוח פרימיום"}
-          </p>
-        </div>
-      ) : (
-        <h2 className="text-center text-[15px] font-bold text-[#581c87]">האיסופים של היום</h2>
-      )}
+      {!showDonationChrome ? <h2 className="text-center text-[16px] font-bold text-[#9333EA]">מסלול היום</h2> : null}
 
       {showDonationChrome && DONATION_KEYS.has(tab) ? (
         <AdminLogisticsFilterBar allRows={rows} filters={filters} onChange={setFilters} search={search} onSearch={setSearch} />
@@ -89,6 +91,20 @@ export function AdminDashboardTabs({ role, accountRole, rows, analytics, onUpdat
 
       {showDonationChrome ? (
         <div role="tablist" className="flex flex-wrap gap-2 border-b border-[#9333EA]/15 pb-2" aria-label="אזורי ניהול">
+          {showAnalyticsTab ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "analytics"}
+              className={cn(
+                "rounded-xl px-3 py-2 text-[12px] font-bold transition-colors",
+                tab === "analytics" ? "bg-[#9333EA] text-white shadow" : "bg-white text-[#581c87] ring-1 ring-[#9333EA]/20 hover:bg-[#F9F5FF]",
+              )}
+              onClick={() => setTab("analytics")}
+            >
+              סקירה
+            </button>
+          ) : null}
           {DONATION_TABS.map((t) => (
             <button
               key={t.id}
@@ -121,20 +137,6 @@ export function AdminDashboardTabs({ role, accountRole, rows, analytics, onUpdat
               צוות
             </button>
           ) : null}
-          {showAnalyticsTab ? (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "analytics"}
-              className={cn(
-                "rounded-xl px-3 py-2 text-[12px] font-bold",
-                tab === "analytics" ? "bg-[#9333EA] text-white shadow" : "bg-white text-[#581c87] ring-1 ring-[#9333EA]/20",
-              )}
-              onClick={() => setTab("analytics")}
-            >
-              אנליטיקס
-            </button>
-          ) : null}
         </div>
       ) : null}
 
@@ -153,7 +155,19 @@ export function AdminDashboardTabs({ role, accountRole, rows, analytics, onUpdat
         </div>
       ) : null}
 
-      {tab === "analytics" && showAnalyticsTab ? <AdminLogisticsAnalytics analytics={analytics} /> : null}
+      {tab === "analytics" && showAnalyticsTab ? (
+        <div className="space-y-4">
+          <AdminAnalyticsKpiHome
+            kpis={kpis}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            onToday={setTodayIsrael}
+            onClearRange={clearDateRange}
+            onKpiClick={handleKpiNavigate}
+          />
+          <AdminLogisticsAnalytics analytics={scopedAnalytics} />
+        </div>
+      ) : null}
 
       {DONATION_KEYS.has(tab) ? (
         <DonationTable
@@ -164,6 +178,7 @@ export function AdminDashboardTabs({ role, accountRole, rows, analytics, onUpdat
           onExport={onExport}
           variant={tab === "all" ? "all" : "default"}
           showProgress
+          layout={role === "driver" || tab === "today" ? "todaysRoute" : tab === "letters" ? "letters" : "default"}
         />
       ) : null}
     </div>

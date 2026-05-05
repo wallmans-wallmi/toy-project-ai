@@ -44,6 +44,8 @@ export type AdminDonationRow = {
   toy_items: unknown;
   toy_description: string | null;
   ai_generated_letter: string | null;
+  /** תוכן מכתב AI — מסונכן עם ai_generated_letter */
+  ai_letter_content: string | null;
   scheduled_region: string | null;
   scheduled_slot: string | null;
   pickup_city: string | null;
@@ -72,7 +74,8 @@ export type AdminDonationApiRow = Omit<AdminDonationRow, "pickup_location" | "ng
 export function normalizeAdminDonationRow(raw: AdminDonationApiRow): AdminDonationRow {
   const pickup_location = raw.pickup_address ?? raw.address ?? null;
   const ngo_name = raw.target_ngo_name ?? null;
-  return { ...raw, pickup_location, ngo_name };
+  const ai_letter_content = raw.ai_letter_content ?? null;
+  return { ...raw, pickup_location, ngo_name, ai_letter_content };
 }
 
 export function formatToyItemsLine(row: AdminDonationRow): string {

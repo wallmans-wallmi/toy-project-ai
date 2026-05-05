@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import {
+  DONATION_PAYMENT_STATUS_COMPLETED,
   getDonationJourneyLabel,
   isToyDropoffJourney,
   isWeaningJourneyId,
@@ -7,7 +8,7 @@ import {
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 /** ערכים נתמכים לעמודת letter_status */
-export const LETTER_STATUSES = ["pending", "completed", "failed"] as const;
+export const LETTER_STATUSES = ["pending", "generated", "sent", "completed", "failed"] as const;
 export type LetterStatus = (typeof LETTER_STATUSES)[number];
 
 export function isLetterStatus(value: unknown): value is LetterStatus {
@@ -173,7 +174,7 @@ export async function processDonationLetterAfterPayment(donationId: string): Pro
   const { data: row, error: fetchError } = await supabase
     .from("donations")
     .select(
-      "child_name, toy_description, toy_items, journey_type, letter_status, destination_name",
+      "child_name, toy_description, toy_items, journey_type, letter_status, destination_name, payment_status, ai_generated_letter, ai_letter_content",
     )
     .eq("id", donationId)
     .maybeSingle();
@@ -183,9 +184,21 @@ export async function processDonationLetterAfterPayment(donationId: string): Pro
     return;
   }
 
-  if (row.letter_status === "completed") {
+  if ((row as { payment_status?: string }).payment_status !== DONATION_PAYMENT_STATUS_COMPLETED) {
+    console.error("donation-letter: not paid yet", donationId);
     return;
   }
+
+  const rowEx = row as {
+    ai_letter_content?: string | null;
+    ai_generated_letter?: string | null;
+  };
+  const existingLetter =
+    (typeof rowEx.ai_letter_content === "string" ? rowEx.ai_letter_content.trim() : "") ||
+    (typeof rowEx.ai_generated_letter === "string" ? rowEx.ai_generated_letter.trim() : "");
+  const ls = typeof row.letter_status === "string" ? row.letter_status : "";
+  if (ls === "sent" || ls === "completed") return;
+  if (ls === "generated" && existingLetter.length > 0) return;
 
   const childName = typeof row.child_name === "string" ? row.child_name.trim() : "";
   if (!childName) {
@@ -223,7 +236,8 @@ export async function processDonationLetterAfterPayment(donationId: string): Pro
       .from("donations")
       .update({
         ai_generated_letter: output,
-        letter_status: "completed",
+        ai_letter_content: output,
+        letter_status: "generated",
       })
       .eq("id", donationId);
 
