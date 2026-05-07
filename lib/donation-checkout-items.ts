@@ -1,6 +1,8 @@
 import { z } from "zod";
+import type { DonationFormState } from "@/hooks/use-donation-form";
 import type { DonationJourneyId } from "@/lib/donation-journey";
-import { isDonationJourneyId, isToyDropoffJourney } from "@/lib/donation-journey";
+import { isDonationJourneyId, isLegacyWeaningJourneyId, isToyDropoffJourney } from "@/lib/donation-journey";
+import { activePackingChildNames, clampPackingExtraBagCount } from "@/lib/donation-packing-kits";
 import {
   isToySizeId,
   toySizeLabel,
@@ -8,14 +10,14 @@ import {
   type ToySizeId,
 } from "@/lib/toy-donation";
 
-// ─── Canonical `toy_items` JSON (JSONB) — אחיד לכל המסלולים + תאימות ל־legacy ───
-
 export type DonationToyItemToy = {
   type: "toy";
   childName: string;
   itemName: string;
   color: string;
   size: ToySizeId;
+  /** שקיות אריזה נוספות לשורה זו (מעבר לשקית הכלולה) */
+  extra_bags_count?: number;
 };
 
 export type DonationToyItemPacifier = {
@@ -35,13 +37,13 @@ export type DonationToyItemDiapers = {
   status: "closed" | "loose" | "both";
 };
 
+/** פריטים ב־JSONB — צעצועים חדשים + מבנים ישנים לתצוגה במסד */
 export type DonationToyItemJson =
   | DonationToyItemToy
   | DonationToyItemPacifier
   | DonationToyItemBottlesFormula
   | DonationToyItemDiapers;
 
-/** כינוי היסטורי — זהה ל־DonationToyItemJson */
 export type CheckoutToyItemJson = DonationToyItemJson;
 
 const sizeEnum = z.enum(["small", "medium", "large"]);
@@ -54,6 +56,18 @@ const legacyToyRowSchema = z.object({
   item_child_name: z.string().trim().optional(),
 });
 
+const extraBagsField = z
+  .union([z.number(), z.string()])
+  .optional()
+  .transform((v) => {
+    if (v === undefined || v === null || v === "") return undefined;
+    const n = typeof v === "string" ? Number.parseInt(v, 10) : v;
+    if (!Number.isFinite(n)) return undefined;
+    const t = Math.trunc(n as number);
+    if (t <= 0) return undefined;
+    return Math.min(20, t);
+  });
+
 const newToyRowSchema = z
   .object({
     type: z.literal("toy"),
@@ -62,67 +76,24 @@ const newToyRowSchema = z
     name: z.string().trim().optional(),
     color: z.string().trim().min(1),
     size: sizeEnum,
+    extra_bags_count: extraBagsField,
   })
-  .transform((x) => {
+  .transform((x): DonationToyItemToy => {
     const itemName = (x.itemName ?? x.name ?? "").trim();
-    return {
-      type: "toy" as const,
+    const row: DonationToyItemToy = {
+      type: "toy",
       childName: (x.childName ?? "").trim(),
       itemName,
       color: x.color.trim(),
       size: x.size,
     };
+    const eb = x.extra_bags_count;
+    if (eb !== undefined && eb >= 1) {
+      row.extra_bags_count = eb;
+    }
+    return row;
   })
-  .pipe(
-    z.object({
-      type: z.literal("toy"),
-      childName: z.string(),
-      itemName: z.string().min(1),
-      color: z.string(),
-      size: sizeEnum,
-    }),
-  );
-
-const pacifierLegacySchema = z.object({
-  line_type: z.literal("pacifier"),
-  name: z.string().min(1),
-  color: z.string().min(1),
-  size: sizeEnum,
-  quantity: z.number().int().positive(),
-});
-
-const pacifierCanonicalSchema = z.object({
-  type: z.literal("pacifier"),
-  childName: z.string().optional().default(""),
-  quantity: z.number().int().positive(),
-});
-
-const bottleLegacySchema = z.object({
-  line_type: z.literal("bottle"),
-  name: z.string().min(1),
-  color: z.string().min(1),
-  size: sizeEnum,
-  bottle_sub: z.enum(["bottles", "formula"]),
-});
-
-const bottleCanonicalSchema = z.object({
-  type: z.literal("bottles_formula"),
-  subType: z.enum(["bottles", "formula"]),
-  note: z.string().optional(),
-});
-
-const diaperLegacySchema = z.object({
-  line_type: z.literal("diaper"),
-  name: z.string().min(1),
-  color: z.string().min(1),
-  size: sizeEnum,
-  diaper_package: z.enum(["closed", "loose", "both"]),
-});
-
-const diaperCanonicalSchema = z.object({
-  type: z.literal("diapers"),
-  status: z.enum(["closed", "loose", "both"]),
-});
+  .refine((row) => row.itemName.length >= 1, { path: ["itemName"], message: "חייב שם פריט" });
 
 function legacyToyToCanonical(data: z.infer<typeof legacyToyRowSchema>): DonationToyItemToy {
   return {
@@ -146,151 +117,115 @@ function parseToyJourneyEntry(entry: unknown): DonationToyItemToy | null {
   return legacyToyToCanonical(legacy.data);
 }
 
-/**
- * פרסור מערך `toy_items` מה־API — פורמט אחיד (`type`) + פורמט legacy (`line_type` / שורת צעצוע ישנה).
- * מחזיר null רק כשהמבנה באמת לא תואם למסלול.
- */
-export function parseToyItemsPayload(
-  journeyType: DonationJourneyId,
-  raw: unknown,
-): DonationToyItemJson[] | null {
+/** פרסור לטופס תרומת צעצועים בלבד (`toy_dropoff`) */
+export function parseToyItemsPayload(journeyType: string, raw: unknown): DonationToyItemJson[] | null {
+  if (!isToyDropoffJourney(journeyType)) return null;
   if (!Array.isArray(raw)) return null;
-
-  if (isToyDropoffJourney(journeyType)) {
-    if (raw.length === 0) return [];
-    const out: DonationToyItemJson[] = [];
-    for (const entry of raw) {
-      const row = parseToyJourneyEntry(entry);
-      if (!row) return null;
-      out.push(row);
-    }
-    return out;
+  if (raw.length === 0) return [];
+  const out: DonationToyItemJson[] = [];
+  for (const entry of raw) {
+    const row = parseToyJourneyEntry(entry);
+    if (!row) return null;
+    out.push(row);
   }
-
-  if (raw.length !== 1) return null;
-  const entry = raw[0];
-  if (!entry || typeof entry !== "object") return null;
-
-  if (journeyType === "pacifier_weaning") {
-    const o = entry as Record<string, unknown>;
-    if (o.type === "pacifier") {
-      const p = pacifierCanonicalSchema.safeParse(entry);
-      return p.success
-        ? [{ type: "pacifier", childName: p.data.childName.trim(), quantity: p.data.quantity }]
-        : null;
-    }
-    const leg = pacifierLegacySchema.safeParse(entry);
-    if (leg.success) {
-      return [{ type: "pacifier", childName: "", quantity: leg.data.quantity }];
-    }
-    return null;
-  }
-
-  if (journeyType === "bottle_weaning") {
-    const o = entry as Record<string, unknown>;
-    if (o.type === "bottles_formula") {
-      const p = bottleCanonicalSchema.safeParse(entry);
-      return p.success
-        ? [{ type: "bottles_formula", subType: p.data.subType, note: p.data.note }]
-        : null;
-    }
-    const leg = bottleLegacySchema.safeParse(entry);
-    if (leg.success) {
-      return [
-        {
-          type: "bottles_formula",
-          subType: leg.data.bottle_sub,
-          note: leg.data.color?.trim() || undefined,
-        },
-      ];
-    }
-    return null;
-  }
-
-  if (journeyType === "diaper_weaning") {
-    const o = entry as Record<string, unknown>;
-    if (o.type === "diapers") {
-      const p = diaperCanonicalSchema.safeParse(entry);
-      return p.success ? [{ type: "diapers", status: p.data.status }] : null;
-    }
-    const leg = diaperLegacySchema.safeParse(entry);
-    if (leg.success) {
-      return [{ type: "diapers", status: leg.data.diaper_package }];
-    }
-    return null;
-  }
-
-  return null;
+  return out;
 }
 
-/** @deprecated השתמשו ב־parseToyItemsPayload */
 export const parseCheckoutToyItems = parseToyItemsPayload;
 
 export type CheckoutItemsFormInput = {
   journeyType: DonationJourneyId;
   childName: string;
   toyItems: ToyItemRow[];
-  pacifierQuantity: string;
-  bottleSubChoice: "bottles" | "formula" | "";
-  diaperPackageType: "closed" | "loose" | "both" | "";
 };
 
-/** בניית מערך `toy_items` עשיר ל־checkout / עגלה נטושה (payment_status = pending) */
 export function buildCheckoutToyItemsJson(input: CheckoutItemsFormInput): unknown[] {
-  const { journeyType, childName, toyItems, pacifierQuantity, bottleSubChoice, diaperPackageType } =
-    input;
-
-  if (isToyDropoffJourney(journeyType)) {
-    return toyItems
-      .filter((r) => r.name.trim() && r.color.trim() && r.size && isToySizeId(r.size))
-      .map((r) => ({
+  const { toyItems } = input;
+  return toyItems
+    .filter((r) => r.name.trim() && r.color.trim() && r.size && isToySizeId(r.size))
+    .map((r) => {
+      const row: Record<string, unknown> = {
         type: "toy" as const,
         childName: r.itemChildName.trim(),
         itemName: r.name.trim(),
         color: r.color.trim(),
         size: r.size as ToySizeId,
-      }));
-  }
-
-  if (journeyType === "pacifier_weaning") {
-    const parsed = Number.parseInt(pacifierQuantity.trim(), 10);
-    const q = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-    return [
-      {
-        type: "pacifier" as const,
-        childName: childName.trim(),
-        quantity: q,
-      },
-    ];
-  }
-
-  if (journeyType === "bottle_weaning" && (bottleSubChoice === "bottles" || bottleSubChoice === "formula")) {
-    return [
-      {
-        type: "bottles_formula" as const,
-        subType: bottleSubChoice,
-        ...(bottleSubChoice === "formula"
-          ? { note: "איסוף רק פורמולות סגורות ובתוקף" as const }
-          : {}),
-      },
-    ];
-  }
-
-  if (journeyType === "diaper_weaning" && diaperPackageType) {
-    return [{ type: "diapers" as const, status: diaperPackageType }];
-  }
-
-  return [];
+      };
+      const eb = clampPackingExtraBagCount(typeof r.extraBagsCount === "number" ? r.extraBagsCount : 0);
+      if (eb > 0) row.extra_bags_count = eb;
+      return row;
+    });
 }
 
-/** תיאור טקסטואלי לעמודת toy_description (legacy) */
+/** כשאין שלב פריטים בטופס האיסוף: פריט תווית אחד לכל שם מערכת האריזה, לשמירה תקינה ב־API */
+export function buildSyntheticToyPayloadFromPackingForPickup(form: DonationFormState): DonationToyItemToy[] {
+  const names = activePackingChildNames(form)
+    .map((n) => n.trim())
+    .filter(Boolean);
+  const who = names.length > 0 ? names : [form.childName.trim() || "הילדים או הילדות"];
+  return who.map((childName, idx) => {
+    const extra = clampPackingExtraBagCount(form.packingExtraBags[idx] ?? 0);
+    const row: DonationToyItemToy = {
+      type: "toy",
+      childName,
+      itemName: "צעצועים לתרומה (פירוט באיסוף)",
+      color: "יתואם בשיחה",
+      size: "medium",
+    };
+    if (extra > 0) row.extra_bags_count = extra;
+    return row;
+  });
+}
+
+/** סיכום שקיות נוספות מתוך מערך ה־JSON שנשמר ב־toy_items */
+export function sumExtraBagsFromToyPayloads(items: DonationToyItemJson[]): number {
+  let s = 0;
+  for (const p of items) {
+    if (p.type === "toy" && typeof p.extra_bags_count === "number" && p.extra_bags_count > 0) {
+      s += Math.min(20, Math.floor(p.extra_bags_count));
+    }
+  }
+  return s;
+}
+
+/** ממזגים שקיות נוספות ממצב האריזה לשורות צעצוע (לפי התאמת שם ילד או ילדה לשורה הראשונה שלהם) */
+export function mergePackingExtraBagsIntoToyPayloads(
+  items: DonationToyItemToy[],
+  form: DonationFormState,
+): DonationToyItemToy[] {
+  const n = form.childCount;
+  const used = new Set<number>();
+  return items.map((row) => {
+    const nm = row.childName.trim();
+    let idx = -1;
+    for (let i = 0; i < n; i += 1) {
+      const cn = form.packingChildNames[i]?.trim() ?? "";
+      if (cn && cn === nm && !used.has(i)) {
+        idx = i;
+        used.add(i);
+        break;
+      }
+    }
+    const add = idx >= 0 ? clampPackingExtraBagCount(form.packingExtraBags[idx] ?? 0) : 0;
+    if (add <= 0) return row;
+    const prev = clampPackingExtraBagCount(row.extra_bags_count ?? 0);
+    const merged = Math.min(20, prev + add);
+    return { ...row, extra_bags_count: merged > 0 ? merged : undefined };
+  });
+}
+
 export function formatCheckoutToyItemsDescription(items: DonationToyItemJson[]): string {
   if (items.length === 0) return "";
   return items
     .map((i) => {
       if (i.type === "toy") {
         const base = `${i.itemName} · ${i.color} · ${toySizeLabel(i.size)}`;
-        return i.childName.trim() ? `${base} (ילד/ה: ${i.childName.trim()})` : base;
+        const who = i.childName.trim() ? `${base} (ילד/ה: ${i.childName.trim()})` : base;
+        const eb =
+          typeof i.extra_bags_count === "number" && i.extra_bags_count > 0
+            ? ` · שקיות נוספות: ${i.extra_bags_count}`
+            : "";
+        return who + eb;
       }
       if (i.type === "pacifier") {
         const who = i.childName.trim() ? `${i.childName.trim()} · ` : "";
@@ -309,36 +244,24 @@ export function formatCheckoutToyItemsDescription(items: DonationToyItemJson[]):
     .join("\n");
 }
 
-/** פרמטרים ל־URL מהבית — ?journey= */
-export function pickupUrlWithJourney(journeyId: DonationJourneyId): string {
+export function pickupUrlWithJourney(journeyId: DonationJourneyId = "toy_dropoff"): string {
   return `/pickup?journey=${encodeURIComponent(journeyId)}`;
 }
 
+/** קישורי ישנים ממסלולי גמילה מנותבים לתרומת צעצועים */
 export function journeyFromSearchParam(raw: string | null | undefined): DonationJourneyId | null {
-  if (!raw || !isDonationJourneyId(raw)) return null;
-  return raw;
+  if (!raw) return null;
+  if (isDonationJourneyId(raw)) return raw;
+  if (isLegacyWeaningJourneyId(raw)) return "toy_dropoff";
+  return null;
 }
 
-/** שורות תצוגה לסיכום טופס */
 export function summaryLinesFromFormInput(input: CheckoutItemsFormInput): string[] {
-  const rows = buildCheckoutToyItemsJson(input) as DonationToyItemJson[];
+  const rows = buildCheckoutToyItemsJson(input) as DonationToyItemToy[];
   return rows.map((i) => {
-    if (i.type === "toy" && i.childName.trim()) {
+    if (i.childName.trim()) {
       return `${i.childName.trim()}: ${i.itemName} · ${i.color} · ${toySizeLabel(i.size)}`;
     }
-    if (i.type === "toy") {
-      return `${i.itemName} · ${i.color} · ${toySizeLabel(i.size)}`;
-    }
-    if (i.type === "pacifier") {
-      const who = i.childName.trim() ? `${i.childName.trim()} · ` : "";
-      return `${who}מוצצים · כמות ${i.quantity}`;
-    }
-    if (i.type === "bottles_formula") {
-      return i.subType === "formula" ? "פורמולה" : "בקבוקים";
-    }
-    if (i.type === "diapers") {
-      return `חיתולים · ${i.status}`;
-    }
-    return "";
+    return `${i.itemName} · ${i.color} · ${toySizeLabel(i.size)}`;
   });
 }

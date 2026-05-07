@@ -2,14 +2,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { buttonVariants } from "@/components/ui/button";
 import { pickupUrlWithJourney } from "@/lib/donation-checkout-items";
-import { DONATION_JOURNEY_OPTIONS } from "@/lib/donation-journey";
 import { JOURNEY_SERVICE_SECTIONS, SERVICES_INTRO } from "@/lib/services-page-content";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "שירותים",
-  description:
-    "מסלולי תרומה וגמילה עם איסוף עד הבית, טיפול מכבד בפריטים ומכתב חם מותאם למשפחה המקבלת",
+  description: "תרומת צעצועים עם איסוף עד הבית, טיפול מכבד בפריטים ומכתב חם מותאם למשפחה המקבלת",
 };
 
 export default function ServicesPage() {
@@ -21,7 +19,7 @@ export default function ServicesPage() {
       >
         <h1 className="text-balance text-2xl font-bold leading-snug text-slate-900">השירותים שלנו</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
-          כאן תמצאו את ארבעת המסלולים שאנחנו מלווים בהם משפחות כמוכם בדרך חמה ובטוחה
+          השירות מתמקד כיום בתרומת צעצועים בלבד — איסוף נוח, טיפול בפריטים ומכתב חם לילד
         </p>
       </header>
 
@@ -34,16 +32,16 @@ export default function ServicesPage() {
       </section>
 
       <div className="mt-10 flex flex-col gap-10">
-        {DONATION_JOURNEY_OPTIONS.map((opt) => {
-          const detail = JOURNEY_SERVICE_SECTIONS[opt.id];
+        {(["toy_dropoff"] as const).map((id) => {
+          const detail = JOURNEY_SERVICE_SECTIONS[id];
           return (
             <section
-              key={opt.id}
-              id={opt.id}
+              key={id}
+              id={id}
               className="scroll-mt-24 rounded-3xl border border-violet-100 bg-white/95 px-5 py-6 sm:px-6"
-              aria-labelledby={`${opt.id}-title`}
+              aria-labelledby={`${id}-title`}
             >
-              <h2 id={`${opt.id}-title`} className="text-base font-bold leading-snug text-slate-900">
+              <h2 id={`${id}-title`} className="text-base font-bold leading-snug text-slate-900">
                 {detail.headline}
               </h2>
               <ul className="mt-4 space-y-3 text-sm leading-relaxed text-slate-600">
@@ -56,13 +54,13 @@ export default function ServicesPage() {
               </ul>
               <div className="mt-5">
                 <Link
-                  href={pickupUrlWithJourney(opt.id)}
+                  href={pickupUrlWithJourney()}
                   className={cn(
                     buttonVariants({ size: "sm" }),
                     "inline-flex rounded-xl bg-[#9333EA] px-4 py-2 text-sm font-bold text-white hover:bg-[#7c3aed]",
                   )}
                 >
-                  הזמנת איסוף במסלול הזה
+                  התחילו עכשיו
                 </Link>
               </div>
             </section>
@@ -72,9 +70,7 @@ export default function ServicesPage() {
 
       <div className="mt-12 rounded-2xl bg-[#9333EA] px-5 py-6 text-center">
         <p className="text-base font-bold text-white">מוכנים להזמין איסוף</p>
-        <p className="mt-2 text-sm leading-relaxed text-violet-100">
-          בוחרים מסלול בטופס וממשיכים בקלות עד התשלום המאובטח
-        </p>
+        <p className="mt-2 text-sm leading-relaxed text-violet-100">ממלאים טופס קצר וממשיכים בקלות עד התשלום המאובטח</p>
         <Link
           href="/pickup"
           className={cn(
@@ -82,7 +78,7 @@ export default function ServicesPage() {
             "mt-5 inline-flex h-11 min-w-[200px] rounded-2xl bg-white text-sm font-bold text-[#9333EA] hover:bg-violet-50",
           )}
         >
-          הזמנת איסוף
+          התחילו עכשיו
         </Link>
       </div>
     </div>

@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { PICKUP_FEE_ILS } from "@/lib/constants/pricing";
-import { DONATION_PAYMENT_STATUS_COMPLETED } from "@/lib/donation-journey";
-import { scheduleDonationLetterAfterLeadCapture } from "@/lib/donation-letter";
+import { applyDonationCheckoutCompletionFromStripeSession } from "@/lib/stripe/apply-donation-checkout-completion";
 import { getStripe } from "@/lib/stripe/server";
-import { createServiceRoleClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
 
@@ -21,9 +18,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "חסר חתימה" }, { status: 400 });
   }
 
+  const stripe = getStripe();
   let event: Stripe.Event;
   try {
-    const stripe = getStripe();
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
     console.error(err);
@@ -32,38 +29,13 @@ export async function POST(req: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    const donationId = session.metadata?.donation_id;
-    if (!donationId) {
+    if (!session.metadata?.donation_id) {
       console.error("checkout.session.completed without donation_id");
       return NextResponse.json({ received: true });
     }
-
-    const paid =
-      typeof session.amount_total === "number"
-        ? Math.round(session.amount_total / 100)
-        : PICKUP_FEE_ILS;
-
-    try {
-      const supabase = createServiceRoleClient();
-      const { error } = await supabase
-        .from("donations")
-        .update({
-          payment_status: DONATION_PAYMENT_STATUS_COMPLETED,
-          amount_paid: paid,
-          stripe_payment_intent_id:
-            typeof session.payment_intent === "string"
-              ? session.payment_intent
-              : session.payment_intent?.id ?? null,
-        })
-        .eq("id", donationId);
-
-      if (error) {
-        console.error(error);
-      } else {
-        scheduleDonationLetterAfterLeadCapture(donationId);
-      }
-    } catch (e) {
-      console.error(e);
+    const result = await applyDonationCheckoutCompletionFromStripeSession(stripe, session);
+    if (!result.ok) {
+      console.error("[stripe webhook]", result.error);
     }
   }
 

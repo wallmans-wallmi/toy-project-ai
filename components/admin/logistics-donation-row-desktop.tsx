@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminResponsiveFieldSelect } from "@/components/admin/admin-responsive-select";
 import type { AdminDonationPatch, AdminDonationRow } from "@/hooks/useAdminDonations";
 import { formatToyItemsLine } from "@/hooks/useAdminDonations";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,9 @@ function labelDelivery(s: string) {
   };
   return m[s] ?? s;
 }
+
+const PICKUP_FIELD_OPTIONS_ROW = PICKUP_STATUS.map((o) => ({ value: o, label: labelPickup(o) }));
+const DELIVERY_FIELD_OPTIONS_ROW = DELIVERY_STATUS.map((o) => ({ value: o, label: labelDelivery(o) }));
 
 function badgePickup(s: string | null | undefined) {
   switch (s) {
@@ -115,22 +119,25 @@ export function LogisticsDonationRowDesktop({
             aria-label="כתובת איסוף"
           />
           <p className="text-[10px] text-slate-500">מהטופס: {r.scheduled_slot || "—"}</p>
+          {(r.door_code?.trim() || r.address_notes?.trim()) ? (
+            <p className="text-[9px] leading-snug text-slate-500">
+              {r.door_code?.trim() ? `קוד ${r.door_code.trim()}` : ""}
+              {r.address_notes?.trim() ? ` · ${r.address_notes.trim().slice(0, 48)}${(r.address_notes?.trim().length ?? 0) > 48 ? "…" : ""}` : ""}
+            </p>
+          ) : null}
         </div>
         <span className={cn("mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold", badgePickup(r.pickup_status))}>
           {labelPickup(r.pickup_status ?? "pending")}
         </span>
-        <select
-          className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-1 py-1 text-[11px]"
+        <AdminResponsiveFieldSelect
+          triggerClassName="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-1 py-1 text-[11px]"
           value={r.pickup_status ?? "pending"}
-          onChange={async (e) => onUpdate(r.id, { pickup_status: e.target.value })}
-          aria-label="סטטוס איסוף"
-        >
-          {PICKUP_STATUS.map((o) => (
-            <option key={o} value={o}>
-              {labelPickup(o)}
-            </option>
-          ))}
-        </select>
+          onChange={async (next) => onUpdate(r.id, { pickup_status: next })}
+          options={PICKUP_FIELD_OPTIONS_ROW}
+          ariaLabel="סטטוס איסוף"
+          sheetTitle="סטטוס איסוף"
+          sheetSubtitle="העדכון נשמר מיד בשרת"
+        />
       </td>
       <td className="px-2 py-2">
         <div className="flex items-center gap-1 text-[11px] font-bold text-[#581c87]">
@@ -172,18 +179,15 @@ export function LogisticsDonationRowDesktop({
         <span className={cn("mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold", badgeDelivery(r.delivery_status))}>
           {labelDelivery(r.delivery_status ?? "at_warehouse")}
         </span>
-        <select
-          className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-1 py-1 text-[11px]"
+        <AdminResponsiveFieldSelect
+          triggerClassName="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-1 py-1 text-[11px]"
           value={r.delivery_status ?? "at_warehouse"}
-          onChange={async (e) => onUpdate(r.id, { delivery_status: e.target.value })}
-          aria-label="סטטוס משלוח"
-        >
-          {DELIVERY_STATUS.map((o) => (
-            <option key={o} value={o}>
-              {labelDelivery(o)}
-            </option>
-          ))}
-        </select>
+          onChange={async (next) => onUpdate(r.id, { delivery_status: next })}
+          options={DELIVERY_FIELD_OPTIONS_ROW}
+          ariaLabel="סטטוס משלוח"
+          sheetTitle="משלוח לעמותה"
+          sheetSubtitle="העדכון נשמר מיד בשרת"
+        />
       </td>
       <td className="px-2 py-2">
         <Button type="button" size="sm" variant="outline" className="rounded-lg text-[11px]" onClick={() => onQuickView(r)}>

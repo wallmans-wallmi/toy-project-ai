@@ -3,8 +3,15 @@
 import { DonationFormPaymentExtrasBlock } from "@/components/public/donation-form-region-legal";
 
 type PickupSimulatedPaymentStepProps = {
-  feeLabel: string;
-  feeIls: number;
+  /** דמי שינוע ואיסוף בסיס */
+  baseFeeIls: number;
+  baseFeeLabel: string;
+  /** סה״כ שקיות נוספות מכל הילדים או הילדות */
+  extraBagCount: number;
+  /** מחיר לשקית נוספת */
+  extraBagUnitIls: number;
+  /** סכום כולל לתשלום */
+  totalIls: number;
   checkoutError: string | null;
 };
 
@@ -12,10 +19,15 @@ type PickupSimulatedPaymentStepProps = {
  * מסך תשלום בהדמה — עד חיבור חברת סליקה. לחיצה על הכפתור בפוטר קוראת ל־runCheckout ושומרת ל־Supabase.
  */
 export function PickupSimulatedPaymentStep({
-  feeLabel,
-  feeIls,
+  baseFeeIls,
+  baseFeeLabel,
+  extraBagCount,
+  extraBagUnitIls,
+  totalIls,
   checkoutError,
 }: PickupSimulatedPaymentStepProps) {
+  const extraCharge = extraBagCount * extraBagUnitIls;
+
   return (
     <div className="payment-box checkout-brand-surface space-y-4">
       <p
@@ -28,11 +40,29 @@ export function PickupSimulatedPaymentStep({
         חיצונית בשלב הזה
       </p>
 
-      <div className="payment-amount">
-        <span className="pay-label">{feeLabel}</span>
-        <span className="pay-price" dir="ltr">
-          ₪{feeIls}
-        </span>
+      <div className="space-y-2 rounded-2xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-start" dir="rtl">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm text-neutral-700">
+          <span>{baseFeeLabel}</span>
+          <span className="font-semibold tabular-nums" dir="ltr">
+            ₪{baseFeeIls}
+          </span>
+        </div>
+        {extraBagCount > 0 ? (
+          <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm text-neutral-700">
+            <span>
+              שקיות נוספות ({extraBagCount} × {extraBagUnitIls}₪)
+            </span>
+            <span className="font-semibold tabular-nums text-[#9333EA]" dir="ltr">
+              ₪{extraCharge}
+            </span>
+          </div>
+        ) : null}
+        <div className="payment-amount border-t border-violet-200 pt-3">
+          <span className="pay-label">סה״כ לתשלום</span>
+          <span className="pay-price" dir="ltr">
+            ₪{totalIls}
+          </span>
+        </div>
       </div>
 
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/95 p-4 text-start shadow-sm">

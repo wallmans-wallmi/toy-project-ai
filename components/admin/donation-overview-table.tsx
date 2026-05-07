@@ -2,6 +2,7 @@
 
 import type { AdminDonationPatch, AdminDonationRow } from "@/hooks/useAdminDonations";
 import { formatToyItemsLine } from "@/hooks/useAdminDonations";
+import { AdminResponsiveFieldSelect } from "@/components/admin/admin-responsive-select";
 import { Button } from "@/components/ui/button";
 import { getDonationJourneyLabel } from "@/lib/donation-journey";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,9 @@ function labelLetter(v: string) {
   return map[v] ?? v;
 }
 
+const PAYMENT_FIELD_OPTIONS = PAYMENT_OPTIONS.map((o) => ({ value: o, label: labelPayment(o) }));
+const LETTER_FIELD_OPTIONS = LETTER_OPTIONS.map((o) => ({ value: o, label: labelLetter(o) }));
+
 type DonationOverviewTableProps = {
   rows: AdminDonationRow[];
   onUpdate: (id: string, patch: AdminDonationPatch) => Promise<boolean>;
@@ -89,13 +93,16 @@ export function DonationOverviewTable({ rows, onUpdate, onQuickView, onExport }:
       ) : null}
 
       <div className="hidden overflow-x-auto rounded-2xl border border-[#9333EA]/15 bg-white shadow-sm lg:block">
-        <table className="w-full min-w-[920px] text-start text-[13px]">
+        <table className="w-full min-w-[980px] text-start text-[13px]">
           <thead className="bg-[#F9F5FF] text-[12px] font-bold text-slate-700">
             <tr>
               <th className="px-3 py-3">תאריך</th>
               <th className="px-3 py-3">ילד</th>
               <th className="px-3 py-3">מסלול</th>
               <th className="px-3 py-3">פריטים</th>
+              <th className="whitespace-nowrap px-3 py-3" dir="ltr">
+                סכום (₪)
+              </th>
               <th className="px-3 py-3">תשלום</th>
               <th className="px-3 py-3">מכתב</th>
               <th className="w-28 px-3 py-3">פעולות</th>
@@ -115,43 +122,40 @@ export function DonationOverviewTable({ rows, onUpdate, onQuickView, onExport }:
                 <td className="max-w-[220px] truncate px-3 py-2 text-[12px] text-slate-600" title={formatToyItemsLine(r)}>
                   {formatToyItemsLine(r)}
                 </td>
+                <td className="whitespace-nowrap px-3 py-2 font-semibold tabular-nums text-slate-800" dir="ltr">
+                  ₪{typeof r.amount_paid === "number" && Number.isFinite(r.amount_paid) ? r.amount_paid : 0}
+                </td>
                 <td className="px-3 py-2">
                   <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold", paymentBadgeClass(r.payment_status))}>
                     {labelPayment(r.payment_status ?? "pending")}
                   </span>
-                  <select
-                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px]"
+                  <AdminResponsiveFieldSelect
+                    triggerClassName="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px]"
                     value={r.payment_status ?? "pending"}
-                    onChange={async (e) => {
-                      await onUpdate(r.id, { payment_status: e.target.value });
+                    onChange={async (next) => {
+                      await onUpdate(r.id, { payment_status: next });
                     }}
-                    aria-label="סטטוס תשלום"
-                  >
-                    {PAYMENT_OPTIONS.map((o) => (
-                      <option key={o} value={o}>
-                        {labelPayment(o)}
-                      </option>
-                    ))}
-                  </select>
+                    options={PAYMENT_FIELD_OPTIONS}
+                    ariaLabel="סטטוס תשלום"
+                    sheetTitle="סטטוס תשלום"
+                    sheetSubtitle="העדכון נשמר מיד בשרת"
+                  />
                 </td>
                 <td className="px-3 py-2">
                   <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold", letterBadgeClass(r.letter_status))}>
                     {labelLetter(r.letter_status ?? "pending")}
                   </span>
-                  <select
-                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px]"
+                  <AdminResponsiveFieldSelect
+                    triggerClassName="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[12px]"
                     value={r.letter_status ?? "pending"}
-                    onChange={async (e) => {
-                      await onUpdate(r.id, { letter_status: e.target.value });
+                    onChange={async (next) => {
+                      await onUpdate(r.id, { letter_status: next });
                     }}
-                    aria-label="סטטוס מכתב"
-                  >
-                    {LETTER_OPTIONS.map((o) => (
-                      <option key={o} value={o}>
-                        {labelLetter(o)}
-                      </option>
-                    ))}
-                  </select>
+                    options={LETTER_FIELD_OPTIONS}
+                    ariaLabel="סטטוס מכתב"
+                    sheetTitle="סטטוס מכתב"
+                    sheetSubtitle="העדכון נשמר מיד בשרת"
+                  />
                 </td>
                 <td className="px-3 py-2">
                   <Button
@@ -187,40 +191,37 @@ export function DonationOverviewTable({ rows, onUpdate, onQuickView, onExport }:
             </div>
             <p className="mt-2 text-[12px] text-slate-700">{getDonationJourneyLabel(r.journey_type ?? "")}</p>
             <p className="mt-1 text-[12px] leading-snug text-slate-600">{formatToyItemsLine(r)}</p>
+            <p className="mt-2 text-[13px] font-bold tabular-nums text-[#581c87]" dir="ltr">
+              סכום: ₪{typeof r.amount_paid === "number" && Number.isFinite(r.amount_paid) ? r.amount_paid : 0}
+            </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div>
                 <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold", paymentBadgeClass(r.payment_status))}>
                   {labelPayment(r.payment_status ?? "pending")}
                 </span>
-                <select
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[12px]"
+                <AdminResponsiveFieldSelect
+                  triggerClassName="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[12px]"
                   value={r.payment_status ?? "pending"}
-                  onChange={async (e) => onUpdate(r.id, { payment_status: e.target.value })}
-                  aria-label="סטטוס תשלום"
-                >
-                  {PAYMENT_OPTIONS.map((o) => (
-                    <option key={o} value={o}>
-                      {labelPayment(o)}
-                    </option>
-                  ))}
-                </select>
+                  onChange={async (next) => onUpdate(r.id, { payment_status: next })}
+                  options={PAYMENT_FIELD_OPTIONS}
+                  ariaLabel="סטטוס תשלום"
+                  sheetTitle="סטטוס תשלום"
+                  sheetSubtitle="העדכון נשמר מיד בשרת"
+                />
               </div>
               <div>
                 <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold", letterBadgeClass(r.letter_status))}>
                   {labelLetter(r.letter_status ?? "pending")}
                 </span>
-                <select
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[12px]"
+                <AdminResponsiveFieldSelect
+                  triggerClassName="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[12px]"
                   value={r.letter_status ?? "pending"}
-                  onChange={async (e) => onUpdate(r.id, { letter_status: e.target.value })}
-                  aria-label="סטטוס מכתב"
-                >
-                  {LETTER_OPTIONS.map((o) => (
-                    <option key={o} value={o}>
-                      {labelLetter(o)}
-                    </option>
-                  ))}
-                </select>
+                  onChange={async (next) => onUpdate(r.id, { letter_status: next })}
+                  options={LETTER_FIELD_OPTIONS}
+                  ariaLabel="סטטוס מכתב"
+                  sheetTitle="סטטוס מכתב"
+                  sheetSubtitle="העדכון נשמר מיד בשרת"
+                />
               </div>
             </div>
           </article>

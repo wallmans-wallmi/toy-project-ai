@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PortalAccountNavIcon } from "@/components/portal/portal-account-nav-icon";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -74,10 +75,16 @@ export function ClaudeNav() {
           <li>
             <Link href={hashLink("contact")}>צור קשר</Link>
           </li>
+          <li>
+            <Link href="/account/dashboard">האזור האישי</Link>
+          </li>
         </ul>
-        <Link href={pickupCtaHref} className="nav-cta">
-          תיאום איסוף
-        </Link>
+        <div className="nav-actions-inline flex items-center gap-2">
+          <PortalAccountNavIcon className="nav-profile-icon" />
+          <Link href={pickupCtaHref} className="nav-cta">
+            התחילו עכשיו
+          </Link>
+        </div>
         <button
           ref={hamburgerRef}
           type="button"
@@ -153,10 +160,18 @@ export function ClaudeNav() {
                 צור קשר
               </Link>
             </li>
+            <li>
+              <Link href="/account/dashboard" onClick={close}>
+                <div className="mnav-icon mi-4" aria-hidden>
+                  👤
+                </div>
+                האזור האישי
+              </Link>
+            </li>
           </ul>
           <div className="mobile-nav-footer">
             <Link href={pickupCtaHref} onClick={close}>
-              תיאום איסוף
+              התחילו עכשיו
             </Link>
           </div>
         </div>

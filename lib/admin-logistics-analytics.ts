@@ -1,4 +1,5 @@
 import type { AdminDonationRow } from "@/hooks/useAdminDonations";
+import { isDonationPaymentCompletedValue } from "@/lib/donation-payment-status";
 
 export type LogisticsAnalytics = {
   totalRows: number;
@@ -25,7 +26,8 @@ export function computeLogisticsAnalytics(rows: AdminDonationRow[]): LogisticsAn
   for (const r of rows) {
     if ((r.pickup_status ?? "") === "picked_up") pickedUpCount += 1;
     if ((r.delivery_status ?? "") === "delivered") deliveredToNgoCount += 1;
-    if ((r.payment_status ?? "") === "completed") paidTotal += r.amount_paid ?? 0;
+    if (isDonationPaymentCompletedValue(r.payment_status as string | null | undefined | boolean))
+      paidTotal += r.amount_paid ?? 0;
 
     const ngo = (r.ngo_name ?? r.target_ngo_name ?? "").trim() || "ללא שם עמותה";
     ngoMap.set(ngo, (ngoMap.get(ngo) ?? 0) + 1);

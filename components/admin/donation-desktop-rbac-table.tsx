@@ -71,6 +71,8 @@ export function DonationDesktopRbacTable({
 
   const sortedRows = useMemo(() => sortDonationDesktopRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
 
+  const slimOrdersLayout = variant === "all" && !lettersQueueMode;
+
   function handleSort(k: DonationDesktopSortKey) {
     if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -79,8 +81,8 @@ export function DonationDesktopRbacTable({
     }
   }
 
-  const colSpan = (variant === "all" ? 13 : 10) + (lettersQueueMode ? 1 : 0);
-  const minW = variant === "all" ? "min-w-[1240px]" : "min-w-[1020px]";
+  const colSpan = slimOrdersLayout ? 9 : (variant === "all" ? 13 : 10) + (lettersQueueMode ? 1 : 0);
+  const minW = slimOrdersLayout ? "min-w-[1180px]" : variant === "all" ? "min-w-[1240px]" : "min-w-[1020px]";
 
   return (
     <div className="space-y-3">
@@ -92,26 +94,40 @@ export function DonationDesktopRbacTable({
       <div className="overflow-x-auto rounded-2xl border border-[#9333EA]/15 bg-white shadow-sm">
         <table className={cn("w-full text-start", minW)} dir="rtl">
           <thead className="bg-[#F9F5FF] text-slate-700">
-            <tr>
-              <SortTh label="ילד/ה" sortKey="child" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-              <SortTh label="פריטים" sortKey="items" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-              <PlainTh>מסלול</PlainTh>
-              {variant === "all" ? (
-                <>
-                  <SortTh label="עיר" sortKey="city" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                  <SortTh label="משלוח" sortKey="delivery" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                  <PlainTh>עמותה</PlainTh>
-                </>
-              ) : null}
-              <PlainTh>מהיר</PlainTh>
-              <SortTh label="איסוף" sortKey="pickup" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-              <SortTh label="לוגיסטיקה" sortKey="pickup_status" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-              <SortTh label="מכתב" sortKey="letter" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-              {lettersQueueMode ? <PlainTh>מכתב מהיר</PlainTh> : null}
-              <PlainTh>תורם</PlainTh>
-              <SortTh label="תשלום" sortKey="amount" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-              <th className="w-10 px-2 py-2 text-[11px] font-bold text-slate-800">עין</th>
-            </tr>
+            {slimOrdersLayout ? (
+              <tr>
+                <SortTh label="id" sortKey="donation_id" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="מספר הזמנה" sortKey="order_no" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="שם מלא" sortKey="full_name" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="שם הילד" sortKey="child" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="עיר" sortKey="city" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <PlainTh>טלפון</PlainTh>
+                <SortTh label="סטטוס" sortKey="lifecycle" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <PlainTh>התקדמות</PlainTh>
+                <th className="w-10 px-2 py-2 text-[11px] font-bold text-slate-800">פרטים</th>
+              </tr>
+            ) : (
+              <tr>
+                <SortTh label="ילד/ה" sortKey="child" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="פריטים" sortKey="items" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <PlainTh>מסלול</PlainTh>
+                {variant === "all" ? (
+                  <>
+                    <SortTh label="עיר" sortKey="city" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                    <SortTh label="משלוח" sortKey="delivery" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                    <PlainTh>עמותה</PlainTh>
+                  </>
+                ) : null}
+                <PlainTh>מהיר</PlainTh>
+                <SortTh label="איסוף" sortKey="pickup" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="לוגיסטיקה" sortKey="pickup_status" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="מכתב" sortKey="letter" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                {lettersQueueMode ? <PlainTh>מכתב מהיר</PlainTh> : null}
+                <PlainTh>תורם</PlainTh>
+                <SortTh label="תשלום" sortKey="amount" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <th className="w-10 px-2 py-2 text-[11px] font-bold text-slate-800">עין</th>
+              </tr>
+            )}
           </thead>
           <tbody className="divide-y divide-slate-100">
             {sortedRows.map((r) => (
@@ -122,6 +138,7 @@ export function DonationDesktopRbacTable({
                 onUpdate={onUpdate}
                 onQuickView={onQuickView}
                 variant={variant}
+                slimOrdersLayout={slimOrdersLayout}
                 showProgress={showProgress}
                 colSpan={colSpan}
                 lettersQueueMode={lettersQueueMode}

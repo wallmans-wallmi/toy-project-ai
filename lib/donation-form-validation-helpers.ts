@@ -1,17 +1,16 @@
 import type { DonationFormState } from "@/hooks/use-donation-form";
 import { journeyItemsStepValid } from "@/lib/donation-form-zod";
-import { isDonationJourneyId, isToyDropoffJourney } from "@/lib/donation-journey";
+import { activePackingChildNames, packingKitsStepValid } from "@/lib/donation-packing-kits";
 
 export function emailOk(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
-/** שם לתצוגה / מסך הצלחה — במסלול צעצועים מעדיף שם לפי פריט */
 export function displayPrimaryChildName(form: DonationFormState): string {
-  if (isToyDropoffJourney(form.journeyType)) {
-    const fromItem = form.toyItems.find((t) => t.itemChildName.trim())?.itemChildName.trim();
-    if (fromItem) return fromItem;
-  }
+  const packing = activePackingChildNames(form)[0]?.trim();
+  if (packing) return packing;
+  const fromItem = form.toyItems.find((t) => t.itemChildName.trim())?.itemChildName.trim();
+  if (fromItem) return fromItem;
   return form.childName.trim();
 }
 
@@ -19,10 +18,6 @@ export type DonationFormValidationOpts = {
   pickupSplitSteps?: boolean;
 };
 
-/**
- * תנאי לחיצה על "המשך" לפי שלב.
- * מסלול איסוף מפוצל: בשלב הקטגוריה — רק בחירת מסלול (שם ילד בשלב הפריטים).
- */
 export function canAdvanceToNextStep(
   stepIndex: number,
   form: DonationFormState,
@@ -32,9 +27,7 @@ export function canAdvanceToNextStep(
 
   if (!split) {
     if (stepIndex === 0) {
-      return Boolean(
-        isDonationJourneyId(form.journeyType) && form.region && form.pickupSlotId,
-      );
+      return packingKitsStepValid(form);
     }
     if (stepIndex === 1) {
       return Boolean(
@@ -56,26 +49,21 @@ export function canAdvanceToNextStep(
   }
 
   if (stepIndex === 0) {
-    return isDonationJourneyId(form.journeyType);
+    return packingKitsStepValid(form);
   }
   if (stepIndex === 1) {
-    return Boolean(form.region && form.pickupSlotId && form.pickupDate.trim());
-  }
-  if (stepIndex === 2) {
     return Boolean(
       form.firstName.trim() &&
         form.lastName.trim() &&
         form.phone.trim() &&
         emailOk(form.email) &&
+        form.pickupCity.trim() &&
         form.streetName.trim() &&
         form.houseNumber.trim(),
     );
   }
-  if (stepIndex === 3) {
-    return journeyItemsStepValid(form);
-  }
-  if (stepIndex === 4) {
-    return form.toysQualityConfirmed === true && form.termsAccepted === true;
+  if (stepIndex === 2) {
+    return form.termsAccepted === true;
   }
   return true;
 }

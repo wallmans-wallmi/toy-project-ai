@@ -16,8 +16,16 @@ export function formatToyItemsForAdmin(toyItems: unknown): string {
       const size = typeof o.size === "string" ? o.size.trim() : "";
       const child = typeof o.childName === "string" ? o.childName.trim() : "";
       const sizeHe = size && ["small", "medium", "large"].includes(size) ? toySizeLabel(size as "small" | "medium" | "large") : size;
+      const ebRaw = o.extra_bags_count ?? o.extraBagsCount;
+      const eb =
+        typeof ebRaw === "number" && Number.isFinite(ebRaw) && ebRaw > 0
+          ? Math.min(20, Math.floor(ebRaw))
+          : typeof ebRaw === "string" && ebRaw.trim()
+            ? Math.min(20, Math.floor(Number.parseInt(ebRaw, 10)) || 0)
+            : 0;
+      const bagsNote = eb > 0 ? `שקיות נוספות: ${eb}` : "";
       if (label) {
-        const base = [label, color, sizeHe].filter(Boolean).join(" · ");
+        const base = [label, color, sizeHe, bagsNote].filter(Boolean).join(" · ");
         lines.push(child ? `${child}: ${base}` : base);
       }
       continue;

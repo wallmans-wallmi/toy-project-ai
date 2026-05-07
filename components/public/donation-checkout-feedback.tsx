@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Sparkles } from "lucide-react";
+import { formatHebrewOrderNumberLabel } from "@/lib/admin-order-display";
 import { cn } from "@/lib/utils";
 
 /** מסך טעינה בזמן insert ל־DB — מובייל־פירסט, RTL */
@@ -31,6 +32,7 @@ export function DonationCheckoutLoadingPanel({ className }: { className?: string
 type DonationCheckoutSuccessPanelProps = {
   childName: string;
   referenceId: string;
+  orderNumber?: number | null;
   className?: string;
 };
 
@@ -38,6 +40,7 @@ type DonationCheckoutSuccessPanelProps = {
 export function DonationCheckoutSuccessPanel({
   childName,
   referenceId,
+  orderNumber,
   className,
 }: DonationCheckoutSuccessPanelProps) {
   const displayName = childName.trim() || "ילד/תכם";
@@ -69,8 +72,13 @@ export function DonationCheckoutSuccessPanel({
       <p className="mt-3 text-sm leading-relaxed text-slate-600">
         תודה שסומכות עלינו. מתקשרות אליכן בקרוב עם הצעד הבא — בלי לחץ, עם חיוך.
       </p>
-      <p className="mt-5 text-xs font-medium text-slate-500" dir="ltr">
-        מספר פנייה: {referenceId}
+      {orderNumber != null && Number.isFinite(orderNumber) ? (
+        <p className="mt-5 text-lg font-extrabold tracking-tight text-[#581c87]" dir="ltr">
+          מספר הזמנה: {formatHebrewOrderNumberLabel(orderNumber)}
+        </p>
+      ) : null}
+      <p className="mt-3 text-xs font-medium text-slate-500" dir="ltr">
+        מזהה טכני במערכת: {referenceId}
       </p>
     </div>
   );

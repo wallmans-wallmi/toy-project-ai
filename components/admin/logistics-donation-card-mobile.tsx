@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminResponsiveFieldSelect } from "@/components/admin/admin-responsive-select";
 import type { AdminDonationPatch, AdminDonationRow } from "@/hooks/useAdminDonations";
 import { formatToyItemsLine } from "@/hooks/useAdminDonations";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,9 @@ function labelDelivery(s: string) {
   };
   return m[s] ?? s;
 }
+
+const PICKUP_FIELD_OPTIONS = PICKUP_STATUS.map((o) => ({ value: o, label: labelPickup(o) }));
+const DELIVERY_FIELD_OPTIONS = DELIVERY_STATUS.map((o) => ({ value: o, label: labelDelivery(o) }));
 
 function badgePickup(s: string | null | undefined) {
   switch (s) {
@@ -119,23 +123,27 @@ export function LogisticsDonationCardMobile({
             if (addr !== (r.pickup_address ?? r.address ?? "")) await onUpdate(r.id, { pickup_address: addr || null });
           }}
         />
+        {(r.door_code?.trim() || r.address_notes?.trim()) ? (
+          <p className="mt-1 text-[10px] leading-snug text-slate-500">
+            {r.door_code?.trim() ? `קוד: ${r.door_code.trim()}` : null}
+            {r.door_code?.trim() && r.address_notes?.trim() ? " · " : null}
+            {r.address_notes?.trim() ? `הערות לכתובת: ${r.address_notes.trim()}` : null}
+          </p>
+        ) : null}
         <p className="mt-1 text-[10px] text-slate-500">חלון מהטופס: {r.scheduled_slot || "—"}</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", badgePickup(r.pickup_status))}>
             {labelPickup(r.pickup_status ?? "pending")}
           </span>
-          <select
-            className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-[11px]"
+          <AdminResponsiveFieldSelect
+            triggerClassName="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-[11px]"
             value={r.pickup_status ?? "pending"}
-            onChange={async (e) => onUpdate(r.id, { pickup_status: e.target.value })}
-            aria-label="סטטוס איסוף"
-          >
-            {PICKUP_STATUS.map((o) => (
-              <option key={o} value={o}>
-                {labelPickup(o)}
-              </option>
-            ))}
-          </select>
+            onChange={async (next) => onUpdate(r.id, { pickup_status: next })}
+            options={PICKUP_FIELD_OPTIONS}
+            ariaLabel="סטטוס איסוף"
+            sheetTitle="סטטוס איסוף"
+            sheetSubtitle="העדכון נשמר מיד בשרת"
+          />
         </div>
       </div>
 
@@ -176,18 +184,15 @@ export function LogisticsDonationCardMobile({
           <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", badgeDelivery(r.delivery_status))}>
             {labelDelivery(r.delivery_status ?? "at_warehouse")}
           </span>
-          <select
-            className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-[11px]"
+          <AdminResponsiveFieldSelect
+            triggerClassName="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-[11px]"
             value={r.delivery_status ?? "at_warehouse"}
-            onChange={async (e) => onUpdate(r.id, { delivery_status: e.target.value })}
-            aria-label="סטטוס משלוח לעמותה"
-          >
-            {DELIVERY_STATUS.map((o) => (
-              <option key={o} value={o}>
-                {labelDelivery(o)}
-              </option>
-            ))}
-          </select>
+            onChange={async (next) => onUpdate(r.id, { delivery_status: next })}
+            options={DELIVERY_FIELD_OPTIONS}
+            ariaLabel="סטטוס משלוח לעמותה"
+            sheetTitle="משלוח לעמותה"
+            sheetSubtitle="העדכון נשמר מיד בשרת"
+          />
         </div>
       </div>
     </article>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { applyDonationCheckoutCompletionFromStripeSession } from "@/lib/stripe/apply-donation-checkout-completion";
+import { getStripe } from "@/lib/stripe/server";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -8,12 +10,32 @@ export const metadata: Metadata = {
   description: "תודה! קיבלנו את התשלום וניצור איתכם קשר לתיאום סופי.",
 };
 
-export default function PickupSuccessPage({
+type SearchParams = Record<string, string | string[] | undefined>;
+
+function firstString(v: string | string[] | undefined): string | undefined {
+  if (typeof v === "string") return v;
+  if (Array.isArray(v)) return v[0];
+  return undefined;
+}
+
+export default async function PickupSuccessPage({
   searchParams,
 }: {
-  searchParams: { session_id?: string };
+  searchParams: Promise<SearchParams> | SearchParams;
 }) {
-  const hasSession = Boolean(searchParams.session_id);
+  const sp = await Promise.resolve(searchParams);
+  const sessionId = firstString(sp.session_id);
+  const hasSession = Boolean(sessionId);
+
+  if (sessionId?.startsWith("cs_")) {
+    try {
+      const stripe = getStripe();
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      await applyDonationCheckoutCompletionFromStripeSession(stripe, session);
+    } catch {
+      /** ללא webhook מקומי: עדיין מנסים לסנכרן; כשל שקט כדי לא לשבור UX */
+    }
+  }
 
   return (
     <div className="mx-auto max-w-lg px-4 py-16 text-center sm:px-6">

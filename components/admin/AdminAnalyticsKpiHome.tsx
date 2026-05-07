@@ -14,13 +14,22 @@ type Props = {
 };
 
 const KPI_DEF: { id: AdminKpiId; title: string; subtitle: string; value: (k: AdminKpis) => string | number }[] = [
-  { id: "total_orders", title: 'סה"כ הזמנות', subtitle: "לפי תאריך יצירה בטווח", value: (k) => k.totalOrders },
-  { id: "pending_pickup", title: "מחכים לאיסוף", subtitle: "סטטוס איסוף: ממתין", value: (k) => k.pendingPickup },
-  { id: "collected", title: "נאספו", subtitle: "נאסף מהבית או מהנקודה", value: (k) => k.collected },
-  { id: "arrived_ngo", title: "הגיעו לעמותה", subtitle: "משלוח הושלם אצל העמותה", value: (k) => k.arrivedAtNgo },
+  { id: "total_orders", title: "סה״כ הזמנות", subtitle: "לא כולל טיוטות פוטנציאל — לפי תאריך יצירה בטווח", value: (k) => k.totalOrders },
+  { id: "waiting_for_kit", title: "מחכים לערכה", subtitle: "לפני או בזמן משלוח הערכה מהמחסן", value: (k) => k.waitingForKit },
+  {
+    id: "kit_at_customer_no_pickup",
+    title: "קיבלו ערכה",
+    subtitle: "עוד לא קבעו איסוף מהבית",
+    value: (k) => k.kitAtCustomerAwaitingSchedule,
+  },
+  { id: "waiting_for_pickup", title: "מחכים לאיסוף", subtitle: "תואם חלון או שליח בדרך, עדיין לא נאסף", value: (k) => k.waitingForPickup },
+  { id: "arrived_at_ngo", title: "הגיעו לעמותה", subtitle: "סטטוס משלוח: הגיע לעמותה", value: (k) => k.arrivedAtNgo },
+  { id: "waiting_for_letter", title: "מחכים למכתב", subtitle: "אצל העמותה, המכתב עדיין בתור", value: (k) => k.waitingForLetter },
+  { id: "letters_sent", title: "מכתבים שנשלחו", subtitle: "סטטוס מכתב: נשלח או הושלם", value: (k) => k.lettersSent },
   { id: "total_revenue", title: "סכום ששולם", subtitle: "תשלומים שהושלמו (₪)", value: (k) => k.totalRevenueILS.toLocaleString("he-IL") },
-  { id: "letters_sent", title: "מכתבים שנשלחו", subtitle: "נשלח או הושלם", value: (k) => k.lettersSent },
 ];
+
+const ACCENT_KPIS = new Set<AdminKpiId>(["letters_sent", "waiting_for_letter", "total_revenue"]);
 
 export function AdminAnalyticsKpiHome({ kpis, dateRange, onDateRangeChange, onToday, onClearRange, onKpiClick }: Props) {
   const rangeActive = Boolean(dateRange.from || dateRange.to);
@@ -62,7 +71,7 @@ export function AdminAnalyticsKpiHome({ kpis, dateRange, onDateRangeChange, onTo
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {KPI_DEF.map((def) => (
           <button
             key={def.id}
@@ -70,7 +79,7 @@ export function AdminAnalyticsKpiHome({ kpis, dateRange, onDateRangeChange, onTo
             onClick={() => onKpiClick(def.id)}
             className={cn(
               "rounded-2xl border p-4 text-start shadow-sm transition-all hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9333EA]",
-              def.id === "total_revenue" || def.id === "letters_sent"
+              ACCENT_KPIS.has(def.id)
                 ? "border-[#ec4899]/30 bg-gradient-to-br from-pink-50/80 to-[#F9F5FF]"
                 : "border-[#9333EA]/15 bg-[#F9F5FF]",
             )}

@@ -1,12 +1,12 @@
 "use client";
 
+import { AdminLogisticsFilterPopoverSheet } from "@/components/admin/admin-logistics-filter-popover-sheet";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AdminDonationRow } from "@/hooks/useAdminDonations";
 import type { DonationMultiFilterState } from "@/lib/admin-logistics-dashboard";
 import { DELIVERY_FILTER_OPTIONS, LETTER_FILTER_OPTIONS, PICKUP_FILTER_OPTIONS, uniqueCitiesFromRows } from "@/lib/admin-logistics-dashboard";
+import { useIsDesktopPicker } from "@/hooks/use-desktop-picker-breakpoint";
 import { cn } from "@/lib/utils";
-import { ChevronDown } from "lucide-react";
 
 function lblPickup(v: string) {
   const m: Record<string, string> = { pending: "ממתין לאיסוף", picked_up: "נאסף", failed: "נכשל" };
@@ -33,14 +33,16 @@ function MultiList({
   selected,
   toggle,
   labelFn,
+  comfortable,
 }: {
   options: readonly string[];
   selected: string[];
   toggle: (v: string) => void;
   labelFn: (v: string) => string;
+  comfortable?: boolean;
 }) {
   return (
-    <ul className="max-h-48 space-y-1 overflow-y-auto p-2 text-start">
+    <ul className={cn("max-h-[min(60vh,320px)] space-y-1 overflow-y-auto p-2 text-start", comfortable && "max-h-[55vh]")}>
       {options.map((o) => {
         const on = selected.includes(o);
         return (
@@ -48,12 +50,13 @@ function MultiList({
             <button
               type="button"
               className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] font-medium transition-colors",
+                "flex w-full items-center gap-3 rounded-xl font-medium transition-colors",
+                comfortable ? "min-h-[48px] px-3 py-3 text-[14px]" : "gap-2 rounded-lg px-2 py-1.5 text-[12px]",
                 on ? "bg-[#9333EA]/15 text-[#581c87]" : "text-slate-700 hover:bg-slate-50",
               )}
               onClick={() => toggle(o)}
             >
-              <span className={cn("size-3.5 rounded border", on ? "border-[#9333EA] bg-[#9333EA]" : "border-slate-300")} />
+              <span className={cn("shrink-0 rounded border", comfortable ? "size-4" : "size-3.5", on ? "border-[#9333EA] bg-[#9333EA]" : "border-slate-300")} />
               {labelFn(o)}
             </button>
           </li>
@@ -73,6 +76,8 @@ type Props = {
 };
 
 export function AdminLogisticsFilterBar({ allRows, filters, onChange, search, onSearch, disabled }: Props) {
+  const isDesktop = useIsDesktopPicker();
+  const touchFriendly = !isDesktop;
   const cities = uniqueCitiesFromRows(allRows);
 
   function toggleCity(c: string) {
@@ -113,60 +118,60 @@ export function AdminLogisticsFilterBar({ allRows, filters, onChange, search, on
     <div className={cn("rounded-2xl border border-[#9333EA]/15 bg-white/90 p-3 shadow-sm", disabled && "pointer-events-none opacity-50")} dir="rtl">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[11px] font-bold text-[#581c87]">סינון מהיר</span>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="rounded-xl border-[#9333EA]/30 text-[11px] font-bold text-[#581c87]">
-              עיר
-              <ChevronDown className="ms-1 size-3" aria-hidden />
-              {filters.cities.length ? <span className="me-1 rounded-full bg-[#ec4899] px-1.5 py-0 text-[9px] text-white">{filters.cities.length}</span> : null}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
-            <MultiList options={cities} selected={filters.cities} toggle={toggleCity} labelFn={(x) => x} />
-          </PopoverContent>
-        </Popover>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="rounded-xl border-[#9333EA]/30 text-[11px] font-bold text-[#581c87]">
-              איסוף
-              <ChevronDown className="ms-1 size-3" aria-hidden />
-              {filters.pickupStatuses.length ? (
-                <span className="me-1 rounded-full bg-[#ec4899] px-1.5 py-0 text-[9px] text-white">{filters.pickupStatuses.length}</span>
-              ) : null}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-52 p-0" align="start">
-            <MultiList options={PICKUP_FILTER_OPTIONS as unknown as string[]} selected={filters.pickupStatuses} toggle={togglePickup} labelFn={lblPickup} />
-          </PopoverContent>
-        </Popover>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="rounded-xl border-[#9333EA]/30 text-[11px] font-bold text-[#581c87]">
-              מכתב
-              <ChevronDown className="ms-1 size-3" aria-hidden />
-              {filters.letterStatuses.length ? (
-                <span className="me-1 rounded-full bg-[#ec4899] px-1.5 py-0 text-[9px] text-white">{filters.letterStatuses.length}</span>
-              ) : null}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-52 p-0" align="start">
-            <MultiList options={LETTER_FILTER_OPTIONS as unknown as string[]} selected={filters.letterStatuses} toggle={toggleLetter} labelFn={lblLetter} />
-          </PopoverContent>
-        </Popover>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="rounded-xl border-[#9333EA]/30 text-[11px] font-bold text-[#581c87]">
-              משלוח לעמותה
-              <ChevronDown className="ms-1 size-3" aria-hidden />
-              {filters.deliveryStatuses.length ? (
-                <span className="me-1 rounded-full bg-[#ec4899] px-1.5 py-0 text-[9px] text-white">{filters.deliveryStatuses.length}</span>
-              ) : null}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-0" align="start">
-            <MultiList options={DELIVERY_FILTER_OPTIONS as unknown as string[]} selected={filters.deliveryStatuses} toggle={toggleDelivery} labelFn={lblDeliveryFilter} />
-          </PopoverContent>
-        </Popover>
+        <AdminLogisticsFilterPopoverSheet
+          label="עיר"
+          count={filters.cities.length || null}
+          title="סינון לפי עיר"
+          subtitle="אפשר לבחור כמה ערים יחד"
+          desktopPopoverClassName="w-56 border-[#9333EA]/20 bg-white"
+        >
+          <MultiList options={cities} selected={filters.cities} toggle={toggleCity} labelFn={(x) => x} comfortable={touchFriendly} />
+        </AdminLogisticsFilterPopoverSheet>
+        <AdminLogisticsFilterPopoverSheet
+          label="איסוף"
+          count={filters.pickupStatuses.length || null}
+          title="סטטוס איסוף"
+          subtitle="סינון לפי מה שקרה בשטח"
+          desktopPopoverClassName="w-52 border-[#9333EA]/20 bg-white"
+        >
+          <MultiList
+            options={PICKUP_FILTER_OPTIONS as unknown as string[]}
+            selected={filters.pickupStatuses}
+            toggle={togglePickup}
+            labelFn={lblPickup}
+            comfortable={touchFriendly}
+          />
+        </AdminLogisticsFilterPopoverSheet>
+        <AdminLogisticsFilterPopoverSheet
+          label="מכתב"
+          count={filters.letterStatuses.length || null}
+          title="סטטוס מכתב"
+          subtitle="איפה המכתב בתור"
+          desktopPopoverClassName="w-52 border-[#9333EA]/20 bg-white"
+        >
+          <MultiList
+            options={LETTER_FILTER_OPTIONS as unknown as string[]}
+            selected={filters.letterStatuses}
+            toggle={toggleLetter}
+            labelFn={lblLetter}
+            comfortable={touchFriendly}
+          />
+        </AdminLogisticsFilterPopoverSheet>
+        <AdminLogisticsFilterPopoverSheet
+          label="משלוח לעמותה"
+          count={filters.deliveryStatuses.length || null}
+          title="משלוח לעמותה"
+          subtitle="סינון לפי מסלול המשלוח"
+          desktopPopoverClassName="w-56 border-[#9333EA]/20 bg-white"
+        >
+          <MultiList
+            options={DELIVERY_FILTER_OPTIONS as unknown as string[]}
+            selected={filters.deliveryStatuses}
+            toggle={toggleDelivery}
+            labelFn={lblDeliveryFilter}
+            comfortable={touchFriendly}
+          />
+        </AdminLogisticsFilterPopoverSheet>
         {chip ? (
           <Button type="button" variant="ghost" size="sm" className="text-[11px] text-slate-600" onClick={clearAll}>
             ניקוי סינונים
@@ -175,7 +180,7 @@ export function AdminLogisticsFilterBar({ allRows, filters, onChange, search, on
       </div>
       <input
         type="search"
-        placeholder="חיפוש חופשי — שם, טלפון, עמותה…"
+        placeholder="חיפוש — שם, טלפון, מספר הזמנה (למשל 1001 או #1001), מזהה…"
         className="mt-2 w-full rounded-xl border border-slate-200 bg-[#F9F5FF] px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#9333EA]/40"
         value={search}
         onChange={(e) => onSearch(e.target.value)}

@@ -1,5 +1,8 @@
 "use client";
 
+import { AdminResponsiveFieldSelect } from "@/components/admin/admin-responsive-select";
+import { AdminOrdersSlimTableRow } from "@/components/admin/admin-orders-slim-table-row";
+import { AdminPortalFulfillmentQuickActions } from "@/components/admin/admin-portal-fulfillment-quick-actions";
 import { DonationProgressTrackers } from "@/components/admin/donation-progress-trackers";
 import { LetterRowQuickActions } from "@/components/admin/letter-row-quick-actions";
 import { Button } from "@/components/ui/button";
@@ -7,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import type { AdminDashboardRole } from "@/lib/admin-role-types";
 import type { AdminDonationPatch, AdminDonationRow } from "@/hooks/useAdminDonations";
 import { formatToyItemsLine } from "@/hooks/useAdminDonations";
+import { adminPickupMapsQuery } from "@/lib/admin-donation-address-display";
 import { extractCityKey } from "@/lib/admin-logistics-dashboard";
 import { getDonationJourneyLabel } from "@/lib/donation-journey";
 import { cn } from "@/lib/utils";
@@ -32,12 +36,31 @@ function lblDelivery(v: string | null | undefined) {
   return m[v ?? ""] ?? (v || "—");
 }
 
+function lblLetterRbac(o: string) {
+  const m: Record<string, string> = {
+    pending: "ממתין",
+    generated: "נוצר",
+    sent: "נשלח",
+    completed: "הושלם",
+    failed: "נכשל",
+  };
+  return m[o] ?? o;
+}
+
+const LETTER_FIELD_OPTS_RBAC = LETTER_OPTS.map((o) => ({ value: o, label: lblLetterRbac(o) }));
+const PAYMENT_FIELD_OPTS_RBAC = [
+  { value: "pending", label: "ממתין" },
+  { value: "completed", label: "שולם" },
+  { value: "cancelled", label: "בוטל" },
+];
+
 export function DonationDesktopRbacRow({
   r,
   role,
   onUpdate,
   onQuickView,
   variant,
+  slimOrdersLayout = false,
   showProgress,
   colSpan,
   lettersQueueMode = false,
@@ -48,17 +71,23 @@ export function DonationDesktopRbacRow({
   onUpdate: (id: string, patch: AdminDonationPatch) => Promise<boolean>;
   onQuickView: (row: AdminDonationRow) => void;
   variant: "default" | "all";
+  /** טבלת הזמנות מצומצמת: id, מספר הזמנה, שם, ילד, עיר, טלפון, סטטוס, התקדמות, עין */
+  slimOrdersLayout?: boolean;
   showProgress: boolean;
   colSpan: number;
   lettersQueueMode?: boolean;
   onLetterPreview?: (title: string, body: string) => void;
 }) {
+  if (slimOrdersLayout) {
+    return <AdminOrdersSlimTableRow r={r} role={role} onUpdate={onUpdate} onQuickView={onQuickView} />;
+  }
+
   const canLog = role === "admin" || role === "driver";
   const canOffice = role === "admin" || role === "office";
   const canPay = role === "admin";
   const [fn, setFn] = useState(r.first_name ?? "");
   const [ln, setLn] = useState(r.last_name ?? "");
-  const loc = (r.pickup_location || r.address || "").trim();
+  const loc = adminPickupMapsQuery(r).trim();
   const tel = telHref(r.phone);
   const donorLine = [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || "משפחה —";
 
@@ -134,13 +163,15 @@ export function DonationDesktopRbacRow({
         </td>
         <td className="px-2 py-2">
           {canOffice ? (
-            <select className="w-full rounded-lg border border-slate-200 px-1 py-1 text-[12px]" value={r.letter_status ?? "pending"} onChange={(e) => void onUpdate(r.id, { letter_status: e.target.value })}>
-              {LETTER_OPTS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
+            <AdminResponsiveFieldSelect
+              triggerClassName="w-full rounded-lg border border-slate-200 px-1 py-1 text-[12px]"
+              value={r.letter_status ?? "pending"}
+              onChange={(next) => void onUpdate(r.id, { letter_status: next })}
+              options={LETTER_FIELD_OPTS_RBAC}
+              ariaLabel="סטטוס מכתב"
+              sheetTitle="סטטוס מכתב"
+              sheetSubtitle="העדכון נשמר מיד בשרת"
+            />
           ) : (
             <span className="text-[12px]">{r.letter_status}</span>
           )}
@@ -162,11 +193,15 @@ export function DonationDesktopRbacRow({
         </td>
         <td className="px-2 py-2">
           {canPay ? (
-            <select className="w-full rounded-lg border px-1 py-1" value={r.payment_status ?? "pending"} onChange={(e) => void onUpdate(r.id, { payment_status: e.target.value })}>
-              <option value="pending">ממתין</option>
-              <option value="completed">שולם</option>
-              <option value="cancelled">בוטל</option>
-            </select>
+            <AdminResponsiveFieldSelect
+              triggerClassName="w-full rounded-lg border border-slate-200 px-1 py-1 text-[12px]"
+              value={r.payment_status ?? "pending"}
+              onChange={(next) => void onUpdate(r.id, { payment_status: next })}
+              options={PAYMENT_FIELD_OPTS_RBAC}
+              ariaLabel="סטטוס תשלום"
+              sheetTitle="סטטוס תשלום"
+              sheetSubtitle="העדכון נשמר מיד בשרת"
+            />
           ) : (
             <span>{r.payment_status}</span>
           )}
@@ -179,7 +214,8 @@ export function DonationDesktopRbacRow({
       </tr>
       {showProgress ? (
         <tr className="bg-[#faf5ff]/50">
-          <td colSpan={colSpan} className="px-2 py-2">
+          <td colSpan={colSpan} className="space-y-2 px-2 py-2">
+            <AdminPortalFulfillmentQuickActions r={r} role={role} onUpdate={onUpdate} />
             <DonationProgressTrackers r={r} />
           </td>
         </tr>

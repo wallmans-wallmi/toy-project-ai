@@ -1,9 +1,11 @@
 "use client";
 
+import { AdminResponsiveFieldSelect } from "@/components/admin/admin-responsive-select";
 import { DonationProgressTrackers } from "@/components/admin/donation-progress-trackers";
 import { Label } from "@/components/ui/label";
 import type { AdminDonationPatch, AdminDonationRow } from "@/hooks/useAdminDonations";
 import type { AdminDashboardRole } from "@/lib/admin-role-types";
+import { adminPickupDisplayBlock, adminPickupMapsQuery } from "@/lib/admin-donation-address-display";
 import { toyItemsLinesForRoute } from "@/lib/admin-donation-display";
 import { cn } from "@/lib/utils";
 import { MapPin, Navigation, Phone } from "lucide-react";
@@ -17,10 +19,6 @@ function telHref(phone: string | null | undefined): string {
   if (!phone) return "";
   const d = phone.replace(/[^\d+]/g, "");
   return d ? `tel:${d}` : "";
-}
-
-function fullPickupAddress(r: AdminDonationRow): string {
-  return (r.pickup_address || r.pickup_location || r.address || "").trim();
 }
 
 function mapsUrl(q: string): string {
@@ -48,6 +46,12 @@ function patchForRouteStatus(v: string): AdminDonationPatch {
   return { pickup_status: "picked_up", delivery_status: "delivered" };
 }
 
+const ROUTE_STATUS_FIELD_OPTIONS = [
+  { value: "waiting", label: "ממתין לאיסוף" },
+  { value: "picked", label: "נאסף" },
+  { value: "ngo", label: "הגיע לעמותה" },
+];
+
 type Props = {
   r: AdminDonationRow;
   role: AdminDashboardRole;
@@ -57,7 +61,8 @@ type Props = {
 
 export function TodaysRoutePickupCard({ r, role, onUpdate, showProgress = true }: Props) {
   const canSetRouteStatus = role === "admin" || role === "driver";
-  const addr = fullPickupAddress(r);
+  const addr = adminPickupMapsQuery(r).trim();
+  const addrBlock = adminPickupDisplayBlock(r).trim();
   const tel = telHref(r.phone);
   const items = toyItemsLinesForRoute(r.toy_items);
 
@@ -76,7 +81,9 @@ export function TodaysRoutePickupCard({ r, role, onUpdate, showProgress = true }
 
       <section className="mt-4 text-start">
         <p className="text-[12px] font-bold text-[#581c87]">כתובת איסוף</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-slate-800">{addr || "—"}</p>
+        <p className="mt-1 whitespace-pre-line text-[12px] leading-relaxed text-slate-800">
+          {addrBlock || addr || "—"}
+        </p>
         {addr ? (
           <div className="mt-2 flex flex-wrap gap-2">
             <a
@@ -136,19 +143,18 @@ export function TodaysRoutePickupCard({ r, role, onUpdate, showProgress = true }
           סטטוס
         </Label>
         {canSetRouteStatus ? (
-          <select
+          <AdminResponsiveFieldSelect
             id={`route-st-${r.id}`}
-            className={cn(
+            triggerClassName={cn(
               "mt-2 w-full rounded-xl border border-[#9333EA]/30 bg-white px-3 py-2.5 text-[14px] font-bold text-slate-900 outline-none focus:ring-2 focus:ring-[#9333EA]/40",
             )}
             value={routeStatusSelectValue(r)}
-            onChange={(e) => void onUpdate(r.id, patchForRouteStatus(e.target.value))}
-            aria-label="סטטוס איסוף והגעה לעמותה"
-          >
-            <option value="waiting">ממתין לאיסוף</option>
-            <option value="picked">נאסף</option>
-            <option value="ngo">הגיע לעמותה</option>
-          </select>
+            onChange={(next) => void onUpdate(r.id, patchForRouteStatus(next))}
+            options={ROUTE_STATUS_FIELD_OPTIONS}
+            ariaLabel="סטטוס איסוף והגעה לעמותה"
+            sheetTitle="סטטוס מסלול"
+            sheetSubtitle="העדכון נשמר מיד בשרת"
+          />
         ) : (
           <p className="mt-2 text-[12px] text-slate-600">
             {(r.pickup_status ?? "pending") === "picked_up" && (r.delivery_status ?? "") === "delivered"

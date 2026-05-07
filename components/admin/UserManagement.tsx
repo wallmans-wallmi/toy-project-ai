@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminResponsiveFieldSelect } from "@/components/admin/admin-responsive-select";
 import { EditUserModal } from "@/components/admin/EditUserModal";
 import { PasswordField } from "@/components/admin/password-field";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,12 @@ function labelLogistics(r: AdminDashboardRole) {
   if (r === "office") return "משרד";
   return "נהג/ת";
 }
+
+const LOGISTICS_ROLE_FIELD_OPTIONS: { value: AdminDashboardRole; label: string }[] = [
+  { value: "admin", label: "אדמין" },
+  { value: "office", label: "משרד" },
+  { value: "driver", label: "נהג/ת" },
+];
 
 type UserManagementProps = {
   onNotify?: (msg: string | null) => void;
@@ -171,11 +178,15 @@ export function UserManagement({ onNotify }: UserManagementProps) {
             </div>
             <div className="text-start sm:col-span-2">
               <Label className="text-[11px]">תפקיד במערכת (לוגיסטיקה)</Label>
-              <select className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px]" value={newLogistics} onChange={(e) => setNewLogistics(e.target.value as AdminDashboardRole)}>
-                <option value="admin">אדמין</option>
-                <option value="office">משרד</option>
-                <option value="driver">נהג/ת</option>
-              </select>
+              <AdminResponsiveFieldSelect
+                triggerClassName="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px]"
+                value={newLogistics}
+                onChange={(next) => setNewLogistics(next as AdminDashboardRole)}
+                options={LOGISTICS_ROLE_FIELD_OPTIONS}
+                ariaLabel="תפקיד במערכת לוגיסטיקה"
+                sheetTitle="תפקיד במערכת"
+                sheetSubtitle="בוחרים לפני יצירת המשתמש"
+              />
             </div>
           </div>
           <Button type="submit" disabled={busy} className="mt-4 w-full rounded-xl bg-[#9333EA] font-bold text-white hover:bg-[#7c3aed] sm:w-auto">
@@ -203,16 +214,15 @@ export function UserManagement({ onNotify }: UserManagementProps) {
             </div>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
               <Label className="sr-only">שינוי תפקיד לוגיסטיקה</Label>
-              <select
-                className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-[13px]"
+              <AdminResponsiveFieldSelect
+                triggerClassName="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-[13px]"
                 value={m.logistics_role}
-                onChange={(e) => void changeLogistics(m.id, e.target.value as AdminDashboardRole)}
-                aria-label={`תפקיד לוגיסטיקה עבור ${m.email}`}
-              >
-                <option value="admin">אדמין</option>
-                <option value="office">משרד</option>
-                <option value="driver">נהג/ת</option>
-              </select>
+                onChange={(next) => void changeLogistics(m.id, next as AdminDashboardRole)}
+                options={LOGISTICS_ROLE_FIELD_OPTIONS}
+                ariaLabel={`תפקיד לוגיסטיקה עבור ${m.email}`}
+                sheetTitle="שינוי תפקיד לוגיסטיקה"
+                sheetSubtitle="העדכון נשמר מיד בשרת"
+              />
               {canEditAdminCredentials ? (
                 <Button
                   type="button"

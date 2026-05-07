@@ -37,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="he" dir="rtl" className={cn("theme", rubik.variable, heebo.variable)}>
+    <html lang="he" dir="rtl" data-scroll-behavior="smooth" className={cn("theme", rubik.variable, heebo.variable)}>
       <body className="min-h-dvh antialiased">
         <SkipToMainLink />
         {children}

@@ -18,6 +18,8 @@ export type DonationFormContactFieldsProps = {
   textareaClassName: string;
   isPickup: boolean;
   updateField: FieldUpdater;
+  /** הכנה לאימות מבוסס טלפון: מדגישים שהמספר הוא מפתח ייחודי */
+  showAccountPrepHint?: boolean;
 };
 
 export function DonationFormContactFields({
@@ -29,9 +31,21 @@ export function DonationFormContactFields({
   textareaClassName,
   isPickup,
   updateField,
+  showAccountPrepHint = false,
 }: DonationFormContactFieldsProps) {
   return (
     <>
+      {showAccountPrepHint ? (
+        <p
+          className={cn(
+            "rounded-xl border border-[#9333EA]/20 bg-[#F9F5FF] p-3 text-start text-sm font-medium leading-relaxed text-slate-800",
+            pickupSplitSteps && "text-[0.85rem]",
+          )}
+        >
+          שלב חשבון: נא למלא כתובת למשלוח מלאה. מספר הטלפון ישמש כמזהה ייחודי להזמנה ולהתאמה עם מערכת אימות
+          בעתיד
+        </p>
+      ) : null}
       <div className={cn("grid gap-4", pickupSplitSteps ? "field-row" : "sm:grid-cols-2")}>
         <div className={cn("space-y-2", pickupSplitSteps && "field-group")}>
           <Label htmlFor="firstName" className={fieldLabelClass}>
@@ -80,6 +94,11 @@ export function DonationFormContactFields({
           placeholder="0500000000"
           autoComplete="tel"
         />
+        {showAccountPrepHint ? (
+          <p className={cn(sectionSubClass, "text-start")}>
+            המספר ישמש לזיהוי החשבון ולתיאום איתכם, ללא שיתוף עם גורמים שלא קשורים לשירות
+          </p>
+        ) : null}
       </div>
       <div className={cn("space-y-2", pickupSplitSteps && "field-group")}>
         <Label htmlFor="email" className={fieldLabelClass}>
@@ -101,6 +120,22 @@ export function DonationFormContactFields({
         />
         <p className={sectionSubClass}>עדכונים על האיסוף והתשלום בלבד ללא דיוור פרסומי</p>
       </div>
+      {pickupSplitSteps ? (
+        <div className={cn("space-y-2", "field-group")}>
+          <Label htmlFor="pickupCity" className={fieldLabelClass}>
+            עיר
+            <RequiredFieldStar />
+          </Label>
+          <Input
+            id="pickupCity"
+            className={cn(inputClassName, "pickup-native-field")}
+            value={form.pickupCity}
+            onChange={(e) => updateField("pickupCity", e.target.value)}
+            placeholder="למשל תל אביב"
+            autoComplete="address-level2"
+          />
+        </div>
+      ) : null}
       <div className={cn("space-y-2", pickupSplitSteps && "field-group")}>
         <Label htmlFor="streetName" className={fieldLabelClass}>
           שם רחוב

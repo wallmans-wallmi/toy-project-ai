@@ -21,7 +21,7 @@ export type DonationQuantityFieldProps = {
   isPickup?: boolean;
 };
 
-/** שדה כמות מספרית (מוצץ וכו׳) — RTL, נגיש */
+/** שדה כמות מספרית — RTL, נגיש */
 export function DonationQuantityField({
   id,
   label,

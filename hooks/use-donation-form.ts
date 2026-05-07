@@ -2,23 +2,29 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DonationJourneyId } from "@/lib/donation-journey";
-import { isDonationJourneyId } from "@/lib/donation-journey";
+import {
+  clampPackingExtraBagCount,
+  createEmptyPackingChildNames,
+  createEmptyPackingExtraBags,
+  defaultDeferredPickupSchedulingFields,
+  type PackingChildCount,
+  type PackingChildNamesTuple,
+  type PackingExtraBagsTuple,
+} from "@/lib/donation-packing-kits";
 import { createEmptyToyItem, type ToyItemRow } from "@/lib/toy-donation";
 
 export const DONATION_STEP_LABELS = [
-  "מיקום וזמן איסוף",
-  "פרטי קשר וכתובת",
-  "פרטי הפריטים",
+  "ערכות אריזה וילדים",
+  "חשבון וכתובת למשלוח",
+  "פרטי הצעצועים",
   "סיכום",
   "תשלום",
 ] as const;
 
 export const DONATION_PICKUP_SPLIT_STEP_LABELS = [
-  "ממה נפרדים?",
-  "איזור וזמן איסוף",
-  "פרטי קשר וכתובת",
-  "פרטי הפריטים",
-  "סיכום הבקשה",
+  "ערכות אריזה לפי ילדים",
+  "פרטים וכתובת",
+  "סיכום",
   "תשלום",
 ] as const;
 
@@ -33,7 +39,7 @@ export type DonationFormState = {
   floor: string;
   doorCode: string;
   addressNotes: string;
-  journeyType: DonationJourneyId | "";
+  journeyType: DonationJourneyId;
   pickupCity: string;
   region: string;
   toyItems: ToyItemRow[];
@@ -42,20 +48,20 @@ export type DonationFormState = {
   pickupSlotId: string | null;
   pickupDate: string;
   termsAccepted: boolean;
-  pacifierQuantity: string;
-  bottleSubChoice: "" | "bottles" | "formula";
-  diaperPackageType: "" | "closed" | "loose" | "both";
+  childCount: PackingChildCount;
+  packingChildNames: PackingChildNamesTuple;
+  /** שקיות אריזה נוספות לכל ילד או ילדה (מעבר לשקית הכלולה) */
+  packingExtraBags: PackingExtraBagsTuple;
 };
 
 export type UseDonationFormOpts = {
   pickupSplitSteps?: boolean;
-  /** מ־URL (?journey=) או מהורה הבית */
   initialJourneyType?: DonationJourneyId;
 };
 
 function initialFormState(initialJourney?: DonationJourneyId): DonationFormState {
-  const j =
-    initialJourney && isDonationJourneyId(initialJourney) ? initialJourney : ("" as const);
+  const journeyType: DonationJourneyId = initialJourney ?? "toy_dropoff";
+  const deferred = defaultDeferredPickupSchedulingFields();
   return {
     firstName: "",
     lastName: "",
@@ -67,7 +73,36 @@ function initialFormState(initialJourney?: DonationJourneyId): DonationFormState
     floor: "",
     doorCode: "",
     addressNotes: "",
-    journeyType: j,
+    journeyType,
+    pickupCity: "",
+    region: deferred.region,
+    toyItems: [createEmptyToyItem()],
+    toysQualityConfirmed: false,
+    childName: "",
+    pickupSlotId: deferred.pickupSlotId,
+    pickupDate: deferred.pickupDate,
+    termsAccepted: false,
+    childCount: 1,
+    packingChildNames: createEmptyPackingChildNames(),
+    packingExtraBags: createEmptyPackingExtraBags(),
+  };
+}
+
+/** מצב טופס מינימלי לתיאום איסוף בפורטל (אזור, חלון, תאריך, אישורים) */
+export function createEmptyDonationFormStateForPortalPickup(): DonationFormState {
+  const journeyType: DonationJourneyId = "toy_dropoff";
+  return {
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+    streetName: "",
+    houseNumber: "",
+    apartmentNumber: "",
+    floor: "",
+    doorCode: "",
+    addressNotes: "",
+    journeyType,
     pickupCity: "",
     region: "",
     toyItems: [createEmptyToyItem()],
@@ -76,9 +111,9 @@ function initialFormState(initialJourney?: DonationJourneyId): DonationFormState
     pickupSlotId: null,
     pickupDate: "",
     termsAccepted: false,
-    pacifierQuantity: "",
-    bottleSubChoice: "",
-    diaperPackageType: "",
+    childCount: 1,
+    packingChildNames: createEmptyPackingChildNames(),
+    packingExtraBags: createEmptyPackingExtraBags(),
   };
 }
 
@@ -95,23 +130,10 @@ export function useDonationForm(opts?: UseDonationFormOpts) {
     setMaxStepReached((m) => Math.max(m, stepIndex));
   }, [stepIndex]);
 
-  /** סנכרון מסלול מ־URL (?journey=) אחרי טעינה / ניווט */
   useEffect(() => {
     const j = opts?.initialJourneyType;
-    if (!j || !isDonationJourneyId(j)) return;
-    setForm((prev) => {
-      if (prev.journeyType === j) return prev;
-      return {
-        ...prev,
-        journeyType: j,
-        childName: "",
-        pacifierQuantity: "",
-        bottleSubChoice: "",
-        diaperPackageType: "",
-        toyItems: [createEmptyToyItem()],
-        toysQualityConfirmed: false,
-      };
-    });
+    if (!j) return;
+    setForm((prev) => (prev.journeyType === j ? prev : { ...prev, journeyType: j }));
   }, [opts?.initialJourneyType]);
 
   const stepTitle = useMemo(
@@ -136,30 +158,42 @@ export function useDonationForm(opts?: UseDonationFormOpts) {
     [stepCount, maxStepReached],
   );
 
-  const updateField = useCallback(<K extends keyof DonationFormState>(
-    key: K,
-    value: DonationFormState[K],
-  ) => {
+  const updateField = useCallback(<K extends keyof DonationFormState>(key: K, value: DonationFormState[K]) => {
     setForm((prev) => {
-      if (key === "journeyType") {
-        const v = value as DonationFormState["journeyType"];
-        return {
-          ...prev,
-          journeyType: v,
-          childName: "",
-          pacifierQuantity: "",
-          bottleSubChoice: "",
-          diaperPackageType: "",
-          toyItems: [createEmptyToyItem()],
-          toysQualityConfirmed: false,
-        };
-      }
       const next = { ...prev, [key]: value };
       if (key === "region") {
         next.pickupSlotId = null;
         next.pickupDate = "";
       }
       return next;
+    });
+  }, []);
+
+  const updateChildCount = useCallback((count: PackingChildCount) => {
+    setForm((prev) => {
+      const nextBags = createEmptyPackingExtraBags();
+      for (let i = 0; i < count; i += 1) {
+        nextBags[i] = clampPackingExtraBagCount(prev.packingExtraBags[i] ?? 0);
+      }
+      return { ...prev, childCount: count, packingExtraBags: nextBags };
+    });
+  }, []);
+
+  const updatePackingChildName = useCallback((index: number, value: string) => {
+    if (index < 0 || index > 3) return;
+    setForm((prev) => {
+      const next: PackingChildNamesTuple = [...prev.packingChildNames] as PackingChildNamesTuple;
+      next[index] = value;
+      return { ...prev, packingChildNames: next };
+    });
+  }, []);
+
+  const updatePackingExtraBag = useCallback((index: number, value: number) => {
+    if (index < 0 || index > 3) return;
+    setForm((prev) => {
+      const next = [...prev.packingExtraBags] as PackingExtraBagsTuple;
+      next[index] = clampPackingExtraBagCount(value);
+      return { ...prev, packingExtraBags: next };
     });
   }, []);
 
@@ -190,8 +224,8 @@ export function useDonationForm(opts?: UseDonationFormOpts) {
     setForm(initialFormState(opts?.initialJourneyType));
   }, [opts?.initialJourneyType]);
 
-  const isSummaryStep = pickupSplitSteps ? stepIndex === 4 : stepIndex === 3;
-  const isPaymentStep = pickupSplitSteps ? stepIndex === 5 : stepIndex === 4;
+  const isSummaryStep = pickupSplitSteps ? stepIndex === 2 : stepIndex === 3;
+  const isPaymentStep = pickupSplitSteps ? stepIndex === 3 : stepIndex === 4;
 
   return {
     stepIndex,
@@ -205,6 +239,9 @@ export function useDonationForm(opts?: UseDonationFormOpts) {
     isPaymentStep,
     form,
     updateField,
+    updateChildCount,
+    updatePackingChildName,
+    updatePackingExtraBag,
     updateToyItem,
     addToyItem,
     removeToyItem,

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { PortalAccountNavIcon } from "@/components/portal/portal-account-nav-icon";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -36,18 +37,21 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <Link
-          href="/pickup"
-          className={cn(
-            buttonVariants({ size: "lg" }),
-            "ms-auto shrink-0 rounded-full bg-[#9333EA] px-4 py-2 text-sm font-bold text-white hover:bg-[#7c3aed] sm:px-6 sm:text-base",
-          )}
-        >
-          <span className="flex items-center gap-1.5">
-            <span aria-hidden>📦</span>
-            בואו נתרום
-          </span>
-        </Link>
+        <div className="ms-auto flex shrink-0 items-center gap-2">
+          <PortalAccountNavIcon />
+          <Link
+            href="/pickup"
+            className={cn(
+              buttonVariants({ size: "lg" }),
+              "rounded-full bg-[#9333EA] px-4 py-2 text-sm font-bold text-white hover:bg-[#7c3aed] sm:px-6 sm:text-base",
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden>📦</span>
+              התחילו עכשיו
+            </span>
+          </Link>
+        </div>
       </div>
     </header>
   );

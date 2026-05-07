@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { HeroVisualPanel } from "@/components/public/hero-visual-panel";
 
 const stats = [
-  { value: "2,417", label: "פריטים נתרמו" },
+  { value: "2,417", label: "צעצועים נתרמו" },
   { value: "1,890", label: "ילדים שמחו" },
   { value: `₪${PICKUP_FEE_ILS}`, label: "שינוע · איסוף · מכתב AI" },
 ];
@@ -46,7 +46,7 @@ export function LandingHeroSection() {
             >
               <span className="flex items-center gap-1.5">
                 <span aria-hidden>📦</span>
-                קבעו תיאום איסוף
+                התחילו עכשיו
               </span>
               <span className="text-xs font-normal opacity-95">{PICKUP_FEE_LABEL}</span>
             </Link>

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminResponsiveFieldSelect } from "@/components/admin/admin-responsive-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,11 @@ type AdminUserRow = {
   created_at: string;
   updated_at: string;
 };
+
+const ACCOUNT_ROLE_FIELD_OPTIONS = [
+  { value: "admin", label: "אדמין" },
+  { value: "superadmin", label: "סופר־אדמין" },
+];
 
 export function AdminUsersClient() {
   const [users, setUsers] = useState<AdminUserRow[]>([]);
@@ -192,15 +198,16 @@ export function AdminUsersClient() {
               <Label htmlFor="nu-role" className="text-[11px]">
                 תפקיד
               </Label>
-              <select
+              <AdminResponsiveFieldSelect
                 id="nu-role"
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px]"
+                triggerClassName="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px]"
                 value={newRole}
-                onChange={(e) => setNewRole(e.target.value as "admin" | "superadmin")}
-              >
-                <option value="admin">אדמין</option>
-                <option value="superadmin">סופר־אדמין</option>
-              </select>
+                onChange={(next) => setNewRole(next as "admin" | "superadmin")}
+                options={ACCOUNT_ROLE_FIELD_OPTIONS}
+                ariaLabel="תפקיד חשבון"
+                sheetTitle="תפקיד חשבון"
+                sheetSubtitle="לפני יצירת המשתמש"
+              />
             </div>
             <Button type="submit" disabled={busy} className="w-full rounded-xl bg-[#9333EA] font-bold text-white hover:bg-[#7c3aed]">
               {busy ? "שומרים…" : "הוספה"}

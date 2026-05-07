@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminOrdersSlimMobileCard } from "@/components/admin/admin-orders-slim-mobile-card";
 import { DonationDesktopRbacTable } from "@/components/admin/donation-desktop-rbac-table";
 import { DonationMobileCard } from "@/components/admin/donation-mobile-card";
 import { LettersTabPanel } from "@/components/admin/letters-tab-panel";
@@ -111,9 +112,13 @@ export function DonationTable({
           </div>
 
           <div className="flex flex-col gap-4 lg:hidden">
-            {displayRows.map((r) => (
-              <DonationMobileCard key={r.id} r={r} role={role} onUpdate={onUpdate} onQuickView={onQuickView} showProgress={showProgress} />
-            ))}
+            {displayRows.map((r) =>
+              variant === "all" ? (
+                <AdminOrdersSlimMobileCard key={r.id} r={r} role={role} onUpdate={onUpdate} onQuickView={onQuickView} />
+              ) : (
+                <DonationMobileCard key={r.id} r={r} role={role} onUpdate={onUpdate} onQuickView={onQuickView} showProgress={showProgress} />
+              ),
+            )}
           </div>
         </>
       ) : null}

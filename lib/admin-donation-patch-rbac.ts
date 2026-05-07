@@ -2,14 +2,23 @@ import type { AdminDashboardRole } from "@/lib/admin-role-types";
 
 const DRIVER = new Set(["pickup_status", "delivery_status"]);
 const OFFICE = new Set([
+  "portal_fulfillment_stage",
+  "portal_kit_delivered_sms_at",
+  "pickup_status",
+  "delivery_status",
   "letter_status",
   "first_name",
   "last_name",
   "phone",
   "email",
   "address",
+  "street_name",
+  "house_number",
+  "apartment_number",
+  "floor",
   "child_name",
   "pickup_notes",
+  "address_notes",
   "door_code",
   "pickup_address",
   "target_ngo_name",

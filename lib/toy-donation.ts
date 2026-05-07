@@ -11,6 +11,8 @@ export type ToyItemRow = {
   name: string;
   color: string;
   size: ToySizeId | "";
+  /** שקיות נוספות לשורת פריט (מסלול צעצועים מלא) */
+  extraBagsCount?: number;
 };
 
 export type ToyItemPayload = {
@@ -37,7 +39,7 @@ function newToyId(): string {
 }
 
 export function createEmptyToyItem(): ToyItemRow {
-  return { id: newToyId(), itemChildName: "", name: "", color: "", size: "" };
+  return { id: newToyId(), itemChildName: "", name: "", color: "", size: "", extraBagsCount: 0 };
 }
 
 export function toySizeLabel(size: ToySizeId): string {

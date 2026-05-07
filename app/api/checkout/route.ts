@@ -4,7 +4,8 @@ import {
   buildDonationAbandonedCartLeadRow,
   type DonationCheckoutRequestBody,
   validateDonationCheckoutLead,
-} from "@/lib/donation-journey";
+} from "@/lib/donation-checkout-lead";
+import { FUNNEL_POTENTIAL } from "@/lib/donation-funnel-stage";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -32,13 +33,53 @@ export async function POST(req: Request) {
   try {
     const supabase = createServiceRoleClient();
     const row = buildDonationAbandonedCartLeadRow(validated.ok);
+    const upgradeId = validated.ok.upgradeDonationId;
+
+    if (upgradeId) {
+      const { data: existing, error: selErr } = await supabase
+        .from("donations")
+        .select("id, funnel_stage, payment_status")
+        .eq("id", upgradeId)
+        .maybeSingle();
+
+      if (selErr) {
+        console.error(selErr);
+        return NextResponse.json({ error: "לא ניתן לשמור את הבקשה כרגע" }, { status: 500 });
+      }
+
+      const fs = (existing?.funnel_stage ?? "").trim();
+      const ps = (existing?.payment_status ?? "").trim();
+      if (!existing?.id || fs !== FUNNEL_POTENTIAL || ps !== "pending") {
+        return NextResponse.json({ error: "טיוטה לא נמצאה או כבר לא ניתנת לשדרוג" }, { status: 400 });
+      }
+
+      const { data: donation, error: upErr } = await supabase
+        .from("donations")
+        .update(row)
+        .eq("id", upgradeId)
+        .select("id, order_number")
+        .single();
+
+      if (upErr || !donation?.id || donation.order_number == null) {
+        console.error(upErr);
+        return NextResponse.json(
+          { error: "לא ניתן לשמור את הבקשה כרגע. נסו שוב מאוחר יותר." },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json(
+        buildCheckoutLeadCaptureApiPayload(donation.id, Number(donation.order_number), validated.ok),
+      );
+    }
+
     const { data: donation, error: insertError } = await supabase
       .from("donations")
       .insert(row)
-      .select("id")
+      .select("id, order_number")
       .single();
 
-    if (insertError || !donation?.id) {
+    if (insertError || !donation?.id || donation.order_number == null) {
       console.error(insertError);
       return NextResponse.json(
         { error: "לא ניתן לשמור את הבקשה כרגע. נסו שוב מאוחר יותר." },
@@ -48,7 +89,9 @@ export async function POST(req: Request) {
 
     /** מכתב AI — רק אחרי תשלום מוצלח (webhook Stripe) */
 
-    return NextResponse.json(buildCheckoutLeadCaptureApiPayload(donation.id, validated.ok));
+    return NextResponse.json(
+      buildCheckoutLeadCaptureApiPayload(donation.id, Number(donation.order_number), validated.ok),
+    );
   } catch (e) {
     console.error(e);
     const message =

@@ -123,6 +123,11 @@ body {
       justify-content: center;
     }
     .nav-cta:hover { transform: translateY(-1px); background: #7E22CE; }
+    .nav-actions-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
 
     /* ─── MAIN WRAPPER ─── */
     main { position: relative; z-index: 1; }
@@ -1455,7 +1460,11 @@ body {
       outline: 2px solid var(--lavender-accent);
       outline-offset: 2px;
     }
-    .step-dot.active { background: var(--lavender-accent); color: white; }
+    .step-dot.active {
+      background: var(--lavender-accent);
+      color: white;
+      box-shadow: 0 4px 12px rgba(168, 85, 247, 0.35);
+    }
     .step-dot.done { background: var(--mint-accent); color: white; }
     .step-dot.upcoming { background: white; color: var(--text-light); border: 2px solid var(--lavender-mid); }
     .step-line {
@@ -2253,13 +2262,14 @@ body {
 }
 
 .pickup-form-claude .pickup-step-panel .pickup-step-title {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: clamp(1.05rem, 2.8vw, 1.2rem);
+  font-weight: 800;
   margin-bottom: 0.35rem;
   color: var(--text);
+  letter-spacing: -0.01em;
 }
 .pickup-form-claude .pickup-step-panel .pickup-step-desc {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   color: var(--text-muted);
   margin-bottom: 1.25rem;
   line-height: 1.55;

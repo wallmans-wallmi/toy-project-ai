@@ -1,13 +1,20 @@
 import type { DonationFormState } from "@/hooks/use-donation-form";
-import { PICKUP_FEE_LABEL } from "@/lib/constants/pricing";
+import {
+  EXTRA_BAG_FEE_ILS,
+  PICKUP_FEE_ILS,
+  PICKUP_FEE_LABEL,
+  pickupCheckoutTotalIls,
+} from "@/lib/constants/pricing";
 import {
   summaryLinesFromFormInput,
   type CheckoutItemsFormInput,
 } from "@/lib/donation-checkout-items";
 import { displayPrimaryChildName } from "@/components/public/donation-form-validation";
-import { getDonationJourneyLabel, isDonationJourneyId } from "@/lib/donation-journey";
-import { formatPickupAddressLine } from "@/lib/format-pickup-address";
+import { getDonationJourneyLabel } from "@/lib/donation-journey";
+import { formatPickupAddressLine, formatPickupCityAndStreetLine } from "@/lib/format-pickup-address";
+import { activePackingChildNames, sumPackingExtraBags } from "@/lib/donation-packing-kits";
 import type { PickupTimeSlot } from "@/lib/pickup-regions";
+import { isDeferredPickupSchedulingRegion } from "@/lib/pickup-regions";
 import { formatPickupTimeSummaryLine } from "@/lib/pickup-schedule-slots";
 
 type DonationFormSummaryProps = {
@@ -16,6 +23,8 @@ type DonationFormSummaryProps = {
   selectedSlot: PickupTimeSlot | undefined;
   /** עיצוב כרטיס סיכום מ־HTML v2 */
   variant?: "default" | "claude";
+  /** מסלול איסוף מקוצר: בלי רשימת פריטים */
+  hideItems?: boolean;
 };
 
 function dashOr(value: string | undefined | null): string {
@@ -23,15 +32,11 @@ function dashOr(value: string | undefined | null): string {
   return v ? v : "לא צוין";
 }
 
-function checkoutInput(form: DonationFormState): CheckoutItemsFormInput | null {
-  if (!isDonationJourneyId(form.journeyType)) return null;
+function checkoutInput(form: DonationFormState): CheckoutItemsFormInput {
   return {
     journeyType: form.journeyType,
     childName: form.childName,
     toyItems: form.toyItems,
-    pacifierQuantity: form.pacifierQuantity,
-    bottleSubChoice: form.bottleSubChoice,
-    diaperPackageType: form.diaperPackageType,
   };
 }
 
@@ -40,15 +45,23 @@ export function DonationFormSummary({
   regionLabel,
   selectedSlot,
   variant = "default",
+  hideItems = false,
 }: DonationFormSummaryProps) {
   const itemsInput = checkoutInput(form);
-  const itemLines = itemsInput ? summaryLinesFromFormInput(itemsInput) : [];
+  const itemLines = hideItems ? [] : summaryLinesFromFormInput(itemsInput);
   const displayChildName = displayPrimaryChildName(form);
+  const packingNames = activePackingChildNames(form).join(" · ");
+  const extraBagCount = sumPackingExtraBags(form.childCount, form.packingExtraBags);
+  const extraBagChargeIls = extraBagCount * EXTRA_BAG_FEE_ILS;
+  const estimatedCheckoutIls = pickupCheckoutTotalIls(extraBagCount);
   const addressLine = formatPickupAddressLine(form);
-  const pickupTimeLine =
-    formatPickupTimeSummaryLine(form.pickupDate, form.pickupSlotId, selectedSlot?.label ?? "") ||
-    selectedSlot?.label?.trim() ||
-    "";
+  const cityStreetLine = formatPickupCityAndStreetLine(form);
+  const deferredScheduling = isDeferredPickupSchedulingRegion(form.region);
+  const pickupTimeLine = deferredScheduling
+    ? (selectedSlot?.label?.trim() ?? "יתואם עם הצוות אחרי ההרשמה")
+    : formatPickupTimeSummaryLine(form.pickupDate, form.pickupSlotId, selectedSlot?.label ?? "") ||
+      selectedSlot?.label?.trim() ||
+      "";
 
   const itemsList =
     itemLines.length === 0 ? (
@@ -64,6 +77,74 @@ export function DonationFormSummary({
     );
 
   if (variant === "claude") {
+    if (hideItems) {
+      return (
+        <div className="summary-card" dir="rtl">
+          <div className="summary-row">
+            <span className="summary-key">{form.childCount > 1 ? "שמות הילדים או הילדות" : "שם הילד או הילדה"}</span>
+            <span className="summary-val text-start leading-snug">{dashOr(packingNames)}</span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-key">מספר שקיות</span>
+            <span className="summary-val">{form.childCount}</span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-key">שם מלא</span>
+            <span className="summary-val">{dashOr(`${form.firstName} ${form.lastName}`.trim())}</span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-key">טלפון</span>
+            <span className="summary-val" dir="ltr">
+              {dashOr(form.phone)}
+            </span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-key">מייל</span>
+            <span className="summary-val truncate" dir="ltr">
+              {dashOr(form.email)}
+            </span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-key">כתובת</span>
+            <span className="summary-val text-start leading-snug">{dashOr(cityStreetLine)}</span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-key">קוד כניסה</span>
+            <span className="summary-val" dir="ltr">
+              {dashOr(form.doorCode)}
+            </span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-key">הערות</span>
+            <span className="summary-val text-start">{dashOr(form.addressNotes)}</span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-key">דמי בסיס (שינוע ואיסוף)</span>
+            <span className="summary-val font-semibold tabular-nums text-[var(--text)]" dir="ltr">
+              ₪{PICKUP_FEE_ILS}
+            </span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-key">שקיות נוספות</span>
+            <span className="summary-val text-start text-xs leading-snug text-[var(--text-muted)]">
+              {extraBagCount > 0
+                ? `${extraBagCount} במחיר ${EXTRA_BAG_FEE_ILS}₪ ליחידה (סה״כ ₪${extraBagChargeIls})`
+                : "אין — שקית אחת כלולה לכל ילד או ילדה"}
+            </span>
+          </div>
+          <div className="summary-row border-t border-[var(--border)] pt-2">
+            <span className="summary-key font-bold">סה״כ משוער לתשלום</span>
+            <span className="summary-val font-black tabular-nums text-[#9333EA]" dir="ltr">
+              ₪{estimatedCheckoutIls}
+            </span>
+          </div>
+          <p className="m-0 px-1 text-center text-xs leading-relaxed text-[var(--text-muted)]">
+            {PICKUP_FEE_LABEL} — כולל שינוע איסוף ומכתב AI מותאם
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="summary-card" dir="rtl">
         {form.pickupCity.trim() ? (
@@ -77,7 +158,13 @@ export function DonationFormSummary({
           <span className="summary-val">{dashOr(regionLabel)}</span>
         </div>
         <div className="summary-row">
-          <span className="summary-key">זמן לאיסוף</span>
+          <span className="summary-key">ערכות אריזה</span>
+          <span className="summary-val text-start leading-snug">
+            {form.childCount} · {dashOr(packingNames)}
+          </span>
+        </div>
+        <div className="summary-row">
+          <span className="summary-key">{deferredScheduling ? "תיאום איסוף" : "זמן לאיסוף"}</span>
           <span className="summary-val text-start leading-snug">{dashOr(pickupTimeLine)}</span>
         </div>
         <div className="summary-row">
@@ -102,7 +189,7 @@ export function DonationFormSummary({
         </div>
         <div className="summary-row">
           <span className="summary-key">כתובת לאיסוף</span>
-          <span className="summary-val text-start leading-snug">{dashOr(addressLine)}</span>
+          <span className="summary-val text-start leading-snug">{dashOr(cityStreetLine || addressLine)}</span>
         </div>
         <div className="summary-row">
           <span className="summary-key">קוד כניסה</span>
@@ -115,7 +202,7 @@ export function DonationFormSummary({
           <span className="summary-val text-start">{dashOr(form.addressNotes)}</span>
         </div>
         <div className="summary-row">
-          <span className="summary-key">שם הילד או הילדה</span>
+          <span className="summary-key">שם ראשי למכתב</span>
           <span className="summary-val">{dashOr(displayChildName)}</span>
         </div>
         <div className="summary-row">
@@ -123,11 +210,28 @@ export function DonationFormSummary({
           <span className="summary-val max-w-[72%]">{itemsList}</span>
         </div>
         <div className="summary-row">
-          <span className="summary-key">{PICKUP_FEE_LABEL}</span>
-          <span className="summary-val text-xs font-normal leading-relaxed text-[var(--text-muted)]">
-            כולל שינוע איסוף ומכתב AI מותאם
+          <span className="summary-key">דמי בסיס (שינוע ואיסוף)</span>
+          <span className="summary-val font-semibold tabular-nums text-[var(--text)]" dir="ltr">
+            ₪{PICKUP_FEE_ILS}
           </span>
         </div>
+        <div className="summary-row">
+          <span className="summary-key">שקיות נוספות</span>
+          <span className="summary-val text-start text-xs leading-snug text-[var(--text-muted)]">
+            {extraBagCount > 0
+              ? `${extraBagCount} במחיר ${EXTRA_BAG_FEE_ILS}₪ ליחידה (סה״כ ₪${extraBagChargeIls})`
+              : "אין — שקית אחת כלולה לכל ילד או ילדה"}
+          </span>
+        </div>
+        <div className="summary-row border-t border-[var(--border)] pt-2">
+          <span className="summary-key font-bold">סה״כ משוער לתשלום</span>
+          <span className="summary-val font-black tabular-nums text-[#9333EA]" dir="ltr">
+            ₪{estimatedCheckoutIls}
+          </span>
+        </div>
+        <p className="m-0 px-1 text-center text-xs leading-relaxed text-[var(--text-muted)]">
+          {PICKUP_FEE_LABEL} — כולל שינוע איסוף ומכתב AI מותאם
+        </p>
       </div>
     );
   }
@@ -145,7 +249,13 @@ export function DonationFormSummary({
         <dd className="max-w-[60%] text-start font-medium">{dashOr(regionLabel)}</dd>
       </div>
       <div className="flex justify-between gap-4 border-b border-violet-100 pb-2">
-        <dt className="text-slate-500">זמן לאיסוף</dt>
+        <dt className="text-slate-500">ערכות אריזה</dt>
+        <dd className="max-w-[65%] text-start font-medium leading-snug">
+          {form.childCount} · {dashOr(packingNames)}
+        </dd>
+      </div>
+      <div className="flex justify-between gap-4 border-b border-violet-100 pb-2">
+        <dt className="text-slate-500">{deferredScheduling ? "תיאום איסוף" : "זמן לאיסוף"}</dt>
         <dd className="max-w-[65%] text-start font-medium leading-snug">{dashOr(pickupTimeLine)}</dd>
       </div>
       <div className="flex justify-between gap-4 border-b border-violet-100 pb-2">
@@ -183,12 +293,34 @@ export function DonationFormSummary({
         <dd className="max-w-[60%] text-start font-medium">{dashOr(form.addressNotes)}</dd>
       </div>
       <div className="flex justify-between gap-4 border-b border-violet-100 pb-2">
-        <dt className="text-slate-500">שם הילד או הילדה</dt>
+        <dt className="text-slate-500">שם ראשי למכתב</dt>
         <dd className="max-w-[65%] text-start font-medium">{dashOr(displayChildName)}</dd>
       </div>
+      {hideItems ? null : (
+        <div className="flex justify-between gap-4 border-b border-violet-100 pb-2">
+          <dt className="shrink-0 text-slate-500">פריטים</dt>
+          <dd className="max-w-[72%] text-start font-medium">{itemsList}</dd>
+        </div>
+      )}
       <div className="flex justify-between gap-4 border-b border-violet-100 pb-2">
-        <dt className="shrink-0 text-slate-500">פריטים</dt>
-        <dd className="max-w-[72%] text-start font-medium">{itemsList}</dd>
+        <dt className="text-slate-500">דמי בסיס (שינוע ואיסוף)</dt>
+        <dd className="font-semibold tabular-nums text-slate-900" dir="ltr">
+          ₪{PICKUP_FEE_ILS}
+        </dd>
+      </div>
+      <div className="flex justify-between gap-4 border-b border-violet-100 pb-2">
+        <dt className="shrink-0 text-slate-500">שקיות נוספות</dt>
+        <dd className="max-w-[65%] text-start text-xs font-medium leading-snug text-slate-700">
+          {extraBagCount > 0
+            ? `${extraBagCount} במחיר ${EXTRA_BAG_FEE_ILS}₪ ליחידה (סה״כ ₪${extraBagChargeIls})`
+            : "אין — שקית אחת כלולה לכל ילד או ילדה"}
+        </dd>
+      </div>
+      <div className="flex justify-between gap-4 border-b border-violet-200 pb-2">
+        <dt className="font-bold text-slate-900">סה״כ משוער לתשלום</dt>
+        <dd className="font-black tabular-nums text-[#9333EA]" dir="ltr">
+          ₪{estimatedCheckoutIls}
+        </dd>
       </div>
       <div className="flex justify-between gap-4 pt-1">
         <dt className="font-medium text-slate-900">{PICKUP_FEE_LABEL}</dt>

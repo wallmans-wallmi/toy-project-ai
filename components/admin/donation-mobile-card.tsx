@@ -1,5 +1,7 @@
 "use client";
 
+import { AdminResponsiveFieldSelect } from "@/components/admin/admin-responsive-select";
+import { AdminPortalFulfillmentQuickActions } from "@/components/admin/admin-portal-fulfillment-quick-actions";
 import { DonationProgressTrackers } from "@/components/admin/donation-progress-trackers";
 import type { AdminDashboardRole } from "@/lib/admin-role-types";
 import type { AdminDonationPatch, AdminDonationRow } from "@/hooks/useAdminDonations";
@@ -8,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getDonationJourneyLabel } from "@/lib/donation-journey";
+import { adminPickupMapsQuery } from "@/lib/admin-donation-address-display";
 import { cn } from "@/lib/utils";
 import { Eye, MapPin, Phone } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -15,7 +18,7 @@ import { useEffect, useState } from "react";
 const LETTER_OPTS = ["pending", "generated", "sent", "completed", "failed"] as const;
 
 function mapsQuery(r: AdminDonationRow): string {
-  return (r.pickup_location || r.address || "").trim();
+  return adminPickupMapsQuery(r).trim();
 }
 
 function telHref(phone: string | null | undefined): string {
@@ -32,6 +35,13 @@ function lblLetter(v: string) {
   const m: Record<string, string> = { pending: "ממתין", sent: "נשלח", completed: "הושלם", failed: "נכשל", generated: "נוצר" };
   return m[v] ?? v;
 }
+
+const LETTER_FIELD_OPTS_MOBILE = LETTER_OPTS.map((o) => ({ value: o, label: lblLetter(o) }));
+const PAYMENT_FIELD_OPTS_MOBILE = [
+  { value: "pending", label: "ממתין" },
+  { value: "completed", label: "שולם" },
+  { value: "cancelled", label: "בוטל" },
+];
 
 type Props = {
   r: AdminDonationRow;
@@ -61,7 +71,8 @@ export function DonationMobileCard({ r, role, onUpdate, onQuickView, showProgres
   return (
     <article className="rounded-2xl border border-[#9333EA]/20 bg-white p-4 shadow-sm">
       {showProgress ? (
-        <div className="mb-3">
+        <div className="mb-3 space-y-2">
+          <AdminPortalFulfillmentQuickActions r={r} role={role} onUpdate={onUpdate} />
           <DonationProgressTrackers r={r} />
         </div>
       ) : null}
@@ -75,6 +86,9 @@ export function DonationMobileCard({ r, role, onUpdate, onQuickView, showProgres
         </Button>
       </div>
       <p className="mt-1 text-[11px] text-slate-600">{formatToyItemsLine(r)}</p>
+      <p className="mt-1 text-[11px] font-semibold tabular-nums text-[#581c87]" dir="ltr">
+        סכום: ₪{typeof r.amount_paid === "number" && Number.isFinite(r.amount_paid) ? r.amount_paid : 0}
+      </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
         {tel ? (
@@ -128,13 +142,15 @@ export function DonationMobileCard({ r, role, onUpdate, onQuickView, showProgres
         <div className="mt-3 space-y-2 rounded-xl border border-slate-100 p-3">
           <p className="text-[12px] font-bold text-slate-800">משרד — מכתב ותורם</p>
           <Label className="text-[10px] text-slate-600">סטטוס מכתב</Label>
-          <select className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px]" value={r.letter_status ?? "pending"} onChange={(e) => void onUpdate(r.id, { letter_status: e.target.value })}>
-            {LETTER_OPTS.map((o) => (
-              <option key={o} value={o}>
-                {lblLetter(o)}
-              </option>
-            ))}
-          </select>
+          <AdminResponsiveFieldSelect
+            triggerClassName="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px]"
+            value={r.letter_status ?? "pending"}
+            onChange={(next) => void onUpdate(r.id, { letter_status: next })}
+            options={LETTER_FIELD_OPTS_MOBILE}
+            ariaLabel="סטטוס מכתב"
+            sheetTitle="סטטוס מכתב"
+            sheetSubtitle="העדכון נשמר מיד בשרת"
+          />
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div>
               <Label className="text-[10px]">שם פרטי</Label>
@@ -155,11 +171,15 @@ export function DonationMobileCard({ r, role, onUpdate, onQuickView, showProgres
       {canPayment ? (
         <div className="mt-3 rounded-xl border border-slate-100 p-3">
           <Label className="text-[11px] font-bold">תשלום</Label>
-          <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px]" value={r.payment_status ?? "pending"} onChange={(e) => void onUpdate(r.id, { payment_status: e.target.value })}>
-            <option value="pending">ממתין</option>
-            <option value="completed">שולם</option>
-            <option value="cancelled">בוטל</option>
-          </select>
+          <AdminResponsiveFieldSelect
+            triggerClassName="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px]"
+            value={r.payment_status ?? "pending"}
+            onChange={(next) => void onUpdate(r.id, { payment_status: next })}
+            options={PAYMENT_FIELD_OPTS_MOBILE}
+            ariaLabel="סטטוס תשלום"
+            sheetTitle="סטטוס תשלום"
+            sheetSubtitle="העדכון נשמר מיד בשרת"
+          />
         </div>
       ) : null}
     </article>

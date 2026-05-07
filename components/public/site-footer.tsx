@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const links = [
   { href: "/services", label: "שירותים" },
-  { href: "/pickup", label: "הזמנת איסוף" },
+  { href: "/pickup", label: "התחילו עכשיו" },
   { href: "/terms", label: "תנאי שירות" },
   { href: "https://www.instagram.com/", label: "אינסטגרם", external: true },
 ];

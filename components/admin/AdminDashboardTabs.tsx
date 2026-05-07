@@ -13,10 +13,12 @@ import type { AdminDashboardRole } from "@/lib/admin-role-types";
 import {
   applyDonationMultiFilters,
   type DonationMultiFilterState,
+  filterDonationsByOrderPipeline,
   filterDonationsBySearch,
   filterRowsByLogisticsTab,
   type LogisticsDonationTabId,
 } from "@/lib/admin-logistics-dashboard";
+import type { AdminOrderPipelineTab } from "@/lib/donation-funnel-stage";
 import { cn } from "@/lib/utils";
 import { useMemo, useState } from "react";
 
@@ -24,13 +26,28 @@ type ExtraTab = "team" | "analytics";
 type TabKey = LogisticsDonationTabId | ExtraTab;
 
 const DONATION_TABS: { id: LogisticsDonationTabId; label: string; sub: string }[] = [
-  { id: "all", label: "כל ההזמנות", sub: "הכול על השולחן — עם סינונים חכמים" },
+  {
+    id: "potential",
+    label: "לקוחות פוטנציאליים",
+    sub: "עדיין בלי תשלום שהושלם: טיוטות, נרשמו בלי סליקה, וגם ממתינים לתשלום אחרי שינוי סטטוס",
+  },
+  { id: "orders", label: "כל ההזמנות", sub: "רק אחרי תשלום: מעקב שלבים מהרגע שהעסקה נסגרה" },
   { id: "today", label: "מסלול היום", sub: "לפי שעת איסוף — כתובת, פריטים, חיוג, וסטטוס בכרטיס אחד" },
   { id: "letters", label: "מכתבים", sub: "תור אחרי תשלום והגעה לעמותה — צפייה, שליחה, הדפסה" },
   { id: "archive", label: "ארכיון", sub: "סגור וחתום — מכתב נשלח והגיע" },
+  { id: "customers", label: "לקוחות", sub: "רק הזמנות ששולמו — סינון לפי שלב הטיפול בתהליך" },
 ];
 
-const DONATION_KEYS = new Set<TabKey>(["all", "today", "letters", "archive"]);
+const DONATION_KEYS = new Set<TabKey>(["potential", "orders", "today", "letters", "archive", "customers"]);
+
+const PIPELINE_TAB_OPTIONS: { id: AdminOrderPipelineTab; label: string }[] = [
+  { id: "all", label: "הכול" },
+  { id: "kit", label: "ממתינים לערכה" },
+  { id: "kit_ready", label: "ערכה אצל הלקוח (לתאם)" },
+  { id: "pickup", label: "ממתינים לאיסוף" },
+  { id: "letter", label: "ממתינים למכתב" },
+  { id: "done", label: "התהליך הושלם" },
+];
 
 const EMPTY_FILTERS: DonationMultiFilterState = { cities: [], pickupStatuses: [], letterStatuses: [], deliveryStatuses: [] };
 
@@ -48,10 +65,12 @@ export function AdminDashboardTabs({ role, accountRole, rows, onUpdate, onQuickV
   const showAnalyticsTab = role === "admin";
   const showDonationChrome = role !== "driver";
 
-  const [tab, setTab] = useState<TabKey>(() => (showAnalyticsTab ? "analytics" : "all"));
+  const [tab, setTab] = useState<TabKey>(() => (showAnalyticsTab ? "analytics" : "orders"));
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<DonationMultiFilterState>(EMPTY_FILTERS);
   const [teamNotify, setTeamNotify] = useState<string | null>(null);
+  const [orderPipeline, setOrderPipeline] = useState<AdminOrderPipelineTab>("all");
+  const [customerPipeline, setCustomerPipeline] = useState<AdminOrderPipelineTab>("all");
 
   const { dateRange, setDateRange, kpiRows, kpis, setTodayIsrael, clearDateRange } = useAdminStats({ rows });
 
@@ -63,10 +82,17 @@ export function AdminDashboardTabs({ role, accountRole, rows, onUpdate, onQuickV
     return filterRowsByLogisticsTab(rows, tab as LogisticsDonationTabId);
   }, [rows, tab, role]);
 
-  const afterMulti = useMemo(() => {
+  const afterPipeline = useMemo(() => {
     if (role === "driver") return baseByTab;
-    return applyDonationMultiFilters(baseByTab, filters);
-  }, [baseByTab, filters, role]);
+    if (tab === "orders") return filterDonationsByOrderPipeline(baseByTab, orderPipeline);
+    if (tab === "customers") return filterDonationsByOrderPipeline(baseByTab, customerPipeline);
+    return baseByTab;
+  }, [role, baseByTab, tab, orderPipeline, customerPipeline]);
+
+  const afterMulti = useMemo(() => {
+    if (role === "driver") return afterPipeline;
+    return applyDonationMultiFilters(afterPipeline, filters);
+  }, [afterPipeline, filters, role]);
 
   const filtered = useMemo(() => {
     if (!DONATION_KEYS.has(tab)) return [];
@@ -76,10 +102,16 @@ export function AdminDashboardTabs({ role, accountRole, rows, onUpdate, onQuickV
   }, [afterMulti, search, tab]);
 
   function handleKpiNavigate(id: AdminKpiId) {
-    const { tab: t, filters: f } = kpiNavigationFor(id);
-    setFilters(f);
-    setTab(t);
+    const nav = kpiNavigationFor(id);
+    setFilters(nav.filters);
+    setTab(nav.tab);
+    if (nav.orderPipeline !== undefined) {
+      setOrderPipeline(nav.orderPipeline);
+    }
   }
+
+  const wideTableVariant =
+    tab === "orders" || tab === "customers" || tab === "potential" ? "all" : "default";
 
   return (
     <div className="space-y-4">
@@ -144,6 +176,36 @@ export function AdminDashboardTabs({ role, accountRole, rows, onUpdate, onQuickV
         <p className="text-center text-[11px] text-slate-500">{DONATION_TABS.find((c) => c.id === tab)?.sub}</p>
       ) : null}
 
+      {showDonationChrome && (tab === "orders" || tab === "customers") ? (
+        <div
+          role="tablist"
+          aria-label={tab === "orders" ? "שלב בתהליך ההזמנה" : "סטטוס טיפול ללקוח לפי הזמנה"}
+          className="flex flex-wrap justify-center gap-2"
+        >
+          {PIPELINE_TAB_OPTIONS.map((p) => {
+            const active = tab === "orders" ? orderPipeline === p.id : customerPipeline === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-[11px] font-bold ring-1 transition-colors",
+                  active ? "bg-[#ec4899] text-white ring-[#ec4899]" : "bg-white text-[#581c87] ring-[#9333EA]/20 hover:bg-[#F9F5FF]",
+                )}
+                onClick={() => {
+                  if (tab === "orders") setOrderPipeline(p.id);
+                  else setCustomerPipeline(p.id);
+                }}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       {tab === "team" && showTeamTab ? (
         <div className="space-y-3">
           {teamNotify ? (
@@ -176,7 +238,7 @@ export function AdminDashboardTabs({ role, accountRole, rows, onUpdate, onQuickV
           onUpdate={onUpdate}
           onQuickView={onQuickView}
           onExport={onExport}
-          variant={tab === "all" ? "all" : "default"}
+          variant={wideTableVariant}
           showProgress
           layout={role === "driver" || tab === "today" ? "todaysRoute" : tab === "letters" ? "letters" : "default"}
         />

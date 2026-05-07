@@ -1,10 +1,6 @@
 import { after } from "next/server";
-import {
-  DONATION_PAYMENT_STATUS_COMPLETED,
-  getDonationJourneyLabel,
-  isToyDropoffJourney,
-  isWeaningJourneyId,
-} from "@/lib/donation-journey";
+import { DONATION_PAYMENT_STATUS_COMPLETED } from "@/lib/donation-checkout-lead";
+import { getDonationJourneyLabel, isToyDropoffJourney, isWeaningJourneyId } from "@/lib/donation-journey";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 /** ערכים נתמכים לעמודת letter_status */

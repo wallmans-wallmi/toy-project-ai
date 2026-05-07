@@ -6,7 +6,7 @@ import { ShippingPickers } from "@/components/forms/ShippingPickers";
 import { PickupDoorNotice } from "@/components/public/pickup-door-notice";
 import type { DonationFormState } from "@/hooks/use-donation-form";
 import { applyPickupDateTime } from "@/hooks/useShippingDetails";
-import { getPickupMonThuForWeekOffset } from "@/lib/pickup-schedule-slots";
+import { resolvePickupDateIsoForStandardSlot } from "@/lib/pickup-schedule-slots";
 import type { PickupTimeSlot } from "@/lib/pickup-regions";
 import { PICKUP_REGIONS } from "@/lib/pickup-regions";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,8 @@ export type DonationFormRegionSlotFieldsProps = {
   selectClassName: string;
   slots: PickupTimeSlot[];
   updateField: FieldUpdater;
+  /** אם הוגדר, רק אזורים אלה יופיעו בבחירה (למשל פורטל לקוח ללא pending_coordination) */
+  allowedRegionIds?: readonly string[];
 };
 
 export function DonationFormRegionSlotFields({
@@ -31,7 +33,12 @@ export function DonationFormRegionSlotFields({
   selectClassName,
   slots,
   updateField,
+  allowedRegionIds,
 }: DonationFormRegionSlotFieldsProps) {
+  const regionsForSelect =
+    allowedRegionIds && allowedRegionIds.length > 0
+      ? PICKUP_REGIONS.filter((r) => allowedRegionIds.includes(r.id))
+      : PICKUP_REGIONS;
   return (
     <>
       {pickupSplitSteps ? (
@@ -50,7 +57,7 @@ export function DonationFormRegionSlotFields({
               onChange={(e) => updateField("region", e.target.value)}
             >
               <option value="">בחרו מהרשימה</option>
-              {PICKUP_REGIONS.map((r) => (
+              {regionsForSelect.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.label}
                 </option>
@@ -74,10 +81,7 @@ export function DonationFormRegionSlotFields({
                   updateField("pickupDate", "");
                   return;
                 }
-                const p = getPickupMonThuForWeekOffset(0);
-                const tail = raw.split("_").pop();
-                const dateIso =
-                  tail === "mon_1214" ? p.mon.iso : tail === "thu_1214" ? p.thu.iso : "";
+                const dateIso = resolvePickupDateIsoForStandardSlot(raw, 0);
                 if (dateIso) applyPickupDateTime(dateIso, raw, updateField);
                 else updateField("pickupSlotId", raw);
               }}
@@ -115,30 +119,27 @@ export function DonationFormAgreementBlocks({
 }: DonationFormAgreementBlocksProps) {
   return (
     <>
-      <label
-        className={cn(
-          "flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 ps-4 pe-4 transition-colors hover:border-violet-200",
-          pickupSplitSteps && "rounded-[var(--radius-xs)] border-[#E5E7EB]",
-          !pickupSplitSteps && isPickup && "min-h-[52px] rounded-3xl p-5",
-        )}
-      >
-        <input
-          type="checkbox"
-          className="mt-1 size-5 shrink-0 rounded border-slate-300 text-[#9333EA] accent-[#9333EA]"
-          checked={form.toysQualityConfirmed}
-          onChange={(e) => updateField("toysQualityConfirmed", e.target.checked)}
-        />
-        <span
+      {pickupSplitSteps ? null : (
+        <label
           className={cn(
-            "text-start text-sm leading-relaxed text-slate-800",
-            pickupSplitSteps && "text-[0.85rem]",
-            !pickupSplitSteps && isPickup && "text-xs",
+            "flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 ps-4 pe-4 transition-colors hover:border-violet-200",
+            isPickup && "min-h-[52px] rounded-3xl p-5",
           )}
         >
-          <RequiredFieldStar className="me-1 ms-0 inline" />
-          מאשרים או מאשרות שהפריטים תקינים, נקיים ולא שבורים
-        </span>
-      </label>
+          <input
+            type="checkbox"
+            className="mt-1 size-5 shrink-0 rounded border-slate-300 text-[#9333EA] accent-[#9333EA]"
+            checked={form.toysQualityConfirmed}
+            onChange={(e) => updateField("toysQualityConfirmed", e.target.checked)}
+          />
+          <span
+            className={cn("text-start text-sm leading-relaxed text-slate-800", isPickup && "text-xs")}
+          >
+            <RequiredFieldStar className="me-1 ms-0 inline" />
+            מאשרים או מאשרות שהפריטים תקינים, נקיים ולא שבורים
+          </span>
+        </label>
+      )}
       <label
         className={cn(
           "flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 ps-4 pe-4 transition-colors hover:border-violet-200",
@@ -184,7 +185,7 @@ export function DonationFormPaymentExtrasBlock({ checkoutError }: DonationFormPa
           <span className="text-[#9333EA]" aria-hidden>
             ✓
           </span>
-          <span>שינוע ואיסוף עד הכתובת שבחרתם בחלון שקבעתם</span>
+          <span>שינוע ואיסוף עד הכתובת שמילאתם — תיאום חלון יתבצע עם הצוות אחרי ההרשמה</span>
         </li>
         <li className="flex gap-2">
           <span className="text-[#9333EA]" aria-hidden>

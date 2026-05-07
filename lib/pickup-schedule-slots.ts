@@ -54,6 +54,21 @@ export function getPickupMonThuForWeekOffset(weekOffset: 0 | 1): MonThuPickupPai
   };
 }
 
+/** סיומת מזהה חלון סטנדרטי (אחרי מזהה האזור עם קווים תחתיים) */
+export function standardSlotDaySuffixFromSlotId(slotId: string): "mon_1214" | "thu_1214" | null {
+  if (slotId.endsWith("_mon_1214")) return "mon_1214";
+  if (slotId.endsWith("_thu_1214")) return "thu_1214";
+  return null;
+}
+
+/** תאריך ISO לשבוע הנוכחי או הבא לפי סיומת החלון */
+export function resolvePickupDateIsoForStandardSlot(slotId: string, weekOffset: 0 | 1): string | null {
+  const suf = standardSlotDaySuffixFromSlotId(slotId);
+  if (!suf) return null;
+  const p = getPickupMonThuForWeekOffset(weekOffset);
+  return suf === "mon_1214" ? p.mon.iso : p.thu.iso;
+}
+
 /** תווית אחת לשדה הסיכום / כפתור הפתיחה */
 export function formatPickupTimeSummaryLine(
   pickupDateIso: string,
@@ -62,7 +77,7 @@ export function formatPickupTimeSummaryLine(
 ): string {
   const d = pickupDateIso.trim();
   if (!d || !pickupSlotId) return "";
-  const tail = pickupSlotId.split("_").pop();
+  const tail = standardSlotDaySuffixFromSlotId(pickupSlotId);
   const pair0 = getPickupMonThuForWeekOffset(0);
   const pair1 = getPickupMonThuForWeekOffset(1);
   if (tail === "mon_1214") {

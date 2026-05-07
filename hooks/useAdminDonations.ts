@@ -5,10 +5,16 @@ import { formatToyItemsForAdmin } from "@/lib/admin-donation-display";
 import { computeLogisticsAnalytics } from "@/lib/admin-logistics-analytics";
 
 export type AdminDonationPatch = {
+  funnel_stage?: string;
   payment_status?: string;
+  portal_fulfillment_stage?: string;
+  portal_kit_delivered_sms_at?: string | null;
   letter_status?: string;
   pickup_date?: string | null;
   pickup_time?: string | null;
+  pickup_slot_id?: string | null;
+  scheduled_region?: string | null;
+  scheduled_slot?: string | null;
   pickup_address?: string | null;
   /** מיפוי ל־`pickup_address` בשרת */
   pickup_location?: string | null;
@@ -24,13 +30,20 @@ export type AdminDonationPatch = {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  street_name?: string | null;
+  house_number?: string | null;
+  apartment_number?: string | null;
+  floor?: string | null;
   child_name?: string | null;
   pickup_notes?: string | null;
+  address_notes?: string | null;
   door_code?: string | null;
 };
 
 export type AdminDonationRow = {
   id: string;
+  /** מספר הזמנה לתצוגה (מתחיל ב־1001) — null לפני מיגרציה */
+  order_number: number | null;
   created_at: string;
   first_name: string | null;
   last_name: string | null;
@@ -38,6 +51,12 @@ export type AdminDonationRow = {
   phone: string | null;
   email: string | null;
   address: string | null;
+  street_name: string | null;
+  house_number: string | null;
+  apartment_number: string | null;
+  floor: string | null;
+  funnel_stage: string | null;
+  portal_fulfillment_stage: string | null;
   journey_type: string | null;
   payment_status: string | null;
   letter_status: string | null;
@@ -51,6 +70,7 @@ export type AdminDonationRow = {
   pickup_city: string | null;
   amount_paid: number | null;
   pickup_notes: string | null;
+  address_notes: string | null;
   door_code: string | null;
   pickup_date: string | null;
   pickup_time: string | null;
@@ -67,15 +87,28 @@ export type AdminDonationRow = {
 };
 
 /** שורה מה־API לפני נרמול (ללא שדות מחושבים) */
-export type AdminDonationApiRow = Omit<AdminDonationRow, "pickup_location" | "ngo_name"> &
-  Partial<Pick<AdminDonationRow, "pickup_location" | "ngo_name">>;
+export type AdminDonationApiRow = Omit<AdminDonationRow, "pickup_location" | "ngo_name" | "order_number"> &
+  Partial<Pick<AdminDonationRow, "pickup_location" | "ngo_name" | "order_number">>;
 
 /** מנרמל שורה מה־API כולל `pickup_location` ו־`ngo_name` לתצוגה */
 export function normalizeAdminDonationRow(raw: AdminDonationApiRow): AdminDonationRow {
   const pickup_location = raw.pickup_address ?? raw.address ?? null;
   const ngo_name = raw.target_ngo_name ?? null;
   const ai_letter_content = raw.ai_letter_content ?? null;
-  return { ...raw, pickup_location, ngo_name, ai_letter_content };
+  return {
+    ...raw,
+    order_number: typeof raw.order_number === "number" && Number.isFinite(raw.order_number) ? raw.order_number : null,
+    street_name: raw.street_name ?? null,
+    house_number: raw.house_number ?? null,
+    apartment_number: raw.apartment_number ?? null,
+    floor: raw.floor ?? null,
+    funnel_stage: raw.funnel_stage ?? null,
+    portal_fulfillment_stage: raw.portal_fulfillment_stage ?? null,
+    address_notes: raw.address_notes ?? null,
+    pickup_location,
+    ngo_name,
+    ai_letter_content,
+  };
 }
 
 export function formatToyItemsLine(row: AdminDonationRow): string {
@@ -85,6 +118,7 @@ export function formatToyItemsLine(row: AdminDonationRow): string {
 export function exportDonationsToCsv(rows: AdminDonationRow[]): void {
   const headers = [
     "id",
+    "order_number",
     "created_at",
     "first_name",
     "last_name",
@@ -103,6 +137,14 @@ export function exportDonationsToCsv(rows: AdminDonationRow[]): void {
     "pickup_time",
     "pickup_location",
     "pickup_address",
+    "address",
+    "street_name",
+    "house_number",
+    "apartment_number",
+    "floor",
+    "door_code",
+    "address_notes",
+    "pickup_notes",
     "pickup_status",
     "delivery_status",
     "ngo_name",
@@ -117,6 +159,7 @@ export function exportDonationsToCsv(rows: AdminDonationRow[]): void {
     lines.push(
       [
         r.id,
+        r.order_number != null ? String(r.order_number) : "",
         r.created_at,
         r.first_name ?? "",
         r.last_name ?? "",
@@ -135,6 +178,14 @@ export function exportDonationsToCsv(rows: AdminDonationRow[]): void {
         r.pickup_time ?? "",
         r.pickup_location ?? "",
         r.pickup_address ?? "",
+        r.address ?? "",
+        r.street_name ?? "",
+        r.house_number ?? "",
+        r.apartment_number ?? "",
+        r.floor ?? "",
+        r.door_code ?? "",
+        r.address_notes ?? "",
+        r.pickup_notes ?? "",
         r.pickup_status ?? "",
         r.delivery_status ?? "",
         r.ngo_name ?? "",
@@ -231,9 +282,10 @@ export function useAdminDonations() {
       credentials: "include",
       body: JSON.stringify(patchToApiBody(id, patch)),
     });
-    const data = (await res.json()) as { error?: string };
+    const data = (await res.json()) as { error?: string; detail?: string };
     if (!res.ok) {
-      setError(data.error ?? "העדכון נכשל");
+      const msg = [data.error, data.detail].filter(Boolean).join(": ");
+      setError(msg || "העדכון נכשל");
       return false;
     }
     await refresh();

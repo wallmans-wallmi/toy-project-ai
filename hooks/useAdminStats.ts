@@ -2,7 +2,14 @@
 
 import type { AdminDonationRow } from "@/hooks/useAdminDonations";
 import { todayDateIsrael } from "@/lib/admin-today-israel";
-import type { DonationMultiFilterState, LogisticsDonationTabId } from "@/lib/admin-logistics-dashboard";
+import {
+  donationRowForPipelineTab,
+  excludeFunnelPotentialRows,
+  isLettersTabRow,
+  type DonationMultiFilterState,
+  type LogisticsDonationTabId,
+} from "@/lib/admin-logistics-dashboard";
+import { orderPipelineTab, type AdminOrderPipelineTab } from "@/lib/donation-funnel-stage";
 import { useCallback, useMemo, useState } from "react";
 
 /** טווח תאריכים YYYY-MM-DD לפי תאריך יצירת ההזמנה; null = ללא סינון (כל הזמן) */
@@ -10,24 +17,29 @@ export type AdminStatsDateRange = { from: string | null; to: string | null };
 
 export type AdminKpis = {
   totalOrders: number;
-  pendingPickup: number;
-  collected: number;
+  waitingForKit: number;
+  kitAtCustomerAwaitingSchedule: number;
+  waitingForPickup: number;
   arrivedAtNgo: number;
-  totalRevenueILS: number;
+  waitingForLetter: number;
   lettersSent: number;
+  totalRevenueILS: number;
 };
 
 export type AdminKpiId =
   | "total_orders"
-  | "pending_pickup"
-  | "collected"
-  | "arrived_ngo"
-  | "total_revenue"
-  | "letters_sent";
+  | "waiting_for_kit"
+  | "kit_at_customer_no_pickup"
+  | "waiting_for_pickup"
+  | "arrived_at_ngo"
+  | "waiting_for_letter"
+  | "letters_sent"
+  | "total_revenue";
 
 export type KpiNavigationTarget = {
   tab: LogisticsDonationTabId;
   filters: DonationMultiFilterState;
+  orderPipeline?: AdminOrderPipelineTab;
 };
 
 export function createdDayKey(row: AdminDonationRow): string {
@@ -51,29 +63,36 @@ export function filterRowsByCreatedDateRange(rows: AdminDonationRow[], range: Ad
 }
 
 export function computeAdminKpis(rows: AdminDonationRow[]): AdminKpis {
-  let pendingPickup = 0;
-  let collected = 0;
+  const paidRows = excludeFunnelPotentialRows(rows);
+  let waitingForKit = 0;
+  let kitAtCustomerAwaitingSchedule = 0;
+  let waitingForPickup = 0;
   let arrivedAtNgo = 0;
-  let totalRevenueILS = 0;
+  let waitingForLetter = 0;
   let lettersSent = 0;
+  let totalRevenueILS = 0;
 
-  for (const r of rows) {
-    const ps = r.pickup_status ?? "pending";
-    if (ps === "pending") pendingPickup += 1;
-    if (ps === "picked_up") collected += 1;
-    if ((r.delivery_status ?? "") === "delivered") arrivedAtNgo += 1;
-    if ((r.payment_status ?? "") === "completed") totalRevenueILS += r.amount_paid ?? 0;
+  for (const r of paidRows) {
+    const pipe = orderPipelineTab(donationRowForPipelineTab(r));
+    if (pipe === "kit") waitingForKit += 1;
+    if (pipe === "kit_ready") kitAtCustomerAwaitingSchedule += 1;
+    if (pipe === "pickup") waitingForPickup += 1;
+    if ((r.delivery_status ?? "").trim() === "delivered") arrivedAtNgo += 1;
+    if (isLettersTabRow(r)) waitingForLetter += 1;
+    totalRevenueILS += r.amount_paid ?? 0;
     const ls = r.letter_status ?? "";
     if (ls === "sent" || ls === "completed") lettersSent += 1;
   }
 
   return {
-    totalOrders: rows.length,
-    pendingPickup,
-    collected,
+    totalOrders: paidRows.length,
+    waitingForKit,
+    kitAtCustomerAwaitingSchedule,
+    waitingForPickup,
     arrivedAtNgo,
-    totalRevenueILS,
+    waitingForLetter,
     lettersSent,
+    totalRevenueILS,
   };
 }
 
@@ -81,19 +100,23 @@ export function kpiNavigationFor(id: AdminKpiId): KpiNavigationTarget {
   const empty: DonationMultiFilterState = { cities: [], pickupStatuses: [], letterStatuses: [], deliveryStatuses: [] };
   switch (id) {
     case "total_orders":
-      return { tab: "all", filters: empty };
-    case "pending_pickup":
-      return { tab: "all", filters: { ...empty, pickupStatuses: ["pending"] } };
-    case "collected":
-      return { tab: "all", filters: { ...empty, pickupStatuses: ["picked_up"] } };
-    case "arrived_ngo":
-      return { tab: "all", filters: { ...empty, deliveryStatuses: ["delivered"] } };
-    case "total_revenue":
-      return { tab: "all", filters: empty };
+      return { tab: "orders", filters: empty, orderPipeline: "all" };
+    case "waiting_for_kit":
+      return { tab: "orders", filters: empty, orderPipeline: "kit" };
+    case "kit_at_customer_no_pickup":
+      return { tab: "orders", filters: empty, orderPipeline: "kit_ready" };
+    case "waiting_for_pickup":
+      return { tab: "orders", filters: empty, orderPipeline: "pickup" };
+    case "arrived_at_ngo":
+      return { tab: "orders", filters: { ...empty, deliveryStatuses: ["delivered"] }, orderPipeline: "all" };
+    case "waiting_for_letter":
+      return { tab: "letters", filters: empty };
     case "letters_sent":
       return { tab: "archive", filters: empty };
+    case "total_revenue":
+      return { tab: "customers", filters: empty, orderPipeline: "all" };
     default:
-      return { tab: "all", filters: empty };
+      return { tab: "orders", filters: empty, orderPipeline: "all" };
   }
 }
 

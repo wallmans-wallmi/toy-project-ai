@@ -1,7 +1,50 @@
 import type { AdminDonationRow } from "@/hooks/useAdminDonations";
+import { isDonationPaymentCompletedValue } from "@/lib/donation-payment-status";
 import { todayDateIsrael } from "@/lib/admin-today-israel";
+import {
+  orderMatchesPipelineTab,
+  type AdminDonationRowForPipeline,
+  type AdminOrderPipelineTab,
+} from "@/lib/donation-funnel-stage";
 
-export type LogisticsDonationTabId = "all" | "today" | "letters" | "archive";
+export type LogisticsDonationTabId = "potential" | "orders" | "today" | "letters" | "archive" | "customers";
+
+export function donationRowForPipelineTab(r: AdminDonationRow): AdminDonationRowForPipeline {
+  return {
+    funnel_stage: r.funnel_stage,
+    payment_status: r.payment_status,
+    portal_fulfillment_stage: r.portal_fulfillment_stage,
+    pickup_status: r.pickup_status,
+    delivery_status: r.delivery_status,
+    letter_status: r.letter_status,
+  };
+}
+
+export function filterDonationsByOrderPipeline(rows: AdminDonationRow[], pipeline: AdminOrderPipelineTab): AdminDonationRow[] {
+  return rows.filter((r) => orderMatchesPipelineTab(donationRowForPipelineTab(r), pipeline));
+}
+
+function isDonationPaymentCompleted(r: AdminDonationRow): boolean {
+  return isDonationPaymentCompletedValue(r.payment_status as string | null | undefined | boolean);
+}
+
+/**
+ * לשונית «לקוחות פוטנציאליים»: עדיין בלי תשלום שהושלם (טיוטת משפך או נרשמו לפני סליקה).
+ * «ממתין לתשלום» מופיע כאן, לא ב«כל ההזמנות».
+ */
+export function isPotentialCustomersTabRow(r: AdminDonationRow): boolean {
+  return !isDonationPaymentCompleted(r);
+}
+
+/** לשוניות הזמנות רשמיות / לוגיסטיקה: רק שורות עם תשלום שהושלם */
+export function excludeUnpaidDonations(rows: AdminDonationRow[]): AdminDonationRow[] {
+  return rows.filter(isDonationPaymentCompleted);
+}
+
+/** @deprecated השם היסטורי — מסנן לפי תשלום שהושלם (לא לפי משפך בלבד) */
+export function excludeFunnelPotentialRows(rows: AdminDonationRow[]): AdminDonationRow[] {
+  return excludeUnpaidDonations(rows);
+}
 
 export type DonationMultiFilterState = {
   cities: string[];
@@ -15,10 +58,36 @@ export const LETTER_FILTER_OPTIONS = ["pending", "generated", "sent", "completed
 export const DELIVERY_FILTER_OPTIONS = ["at_warehouse", "sent_to_ngo", "delivered"] as const;
 
 export function filterDonationsBySearch(rows: AdminDonationRow[], q: string): AdminDonationRow[] {
-  const s = q.trim().toLowerCase();
-  if (!s) return rows;
+  const raw = q.trim();
+  if (!raw) return rows;
+  const digitsOnly = raw.replace(/^#/, "").replace(/\s+/g, "");
+  if (/^\d+$/.test(digitsOnly)) {
+    const n = Number(digitsOnly);
+    const exact = rows.filter((r) => r.order_number === n);
+    if (exact.length > 0) return exact;
+  }
+  const s = raw.toLowerCase();
   return rows.filter((r) => {
-    const hay = [r.child_name, r.first_name, r.last_name, r.phone, r.email, r.pickup_city, r.address, r.pickup_address, r.target_ngo_name]
+    const hay = [
+      r.order_number != null ? String(r.order_number) : "",
+      r.id,
+      r.child_name,
+      r.first_name,
+      r.last_name,
+      r.phone,
+      r.email,
+      r.pickup_city,
+      r.address,
+      r.pickup_address,
+      r.street_name,
+      r.house_number,
+      r.apartment_number,
+      r.address_notes,
+      r.pickup_notes,
+      r.target_ngo_name,
+      r.funnel_stage,
+      r.portal_fulfillment_stage,
+    ]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -48,7 +117,7 @@ export function isTodayShipmentRow(r: AdminDonationRow): boolean {
 
 /** מכתבים: שולם, פריטים אצל העמותה, מכתב עדיין לא נסגר (לא נשלח / לא הושלם) */
 export function isLettersTabRow(r: AdminDonationRow): boolean {
-  const paid = (r.payment_status ?? "") === "completed";
+  const paid = isDonationPaymentCompleted(r);
   const ds = r.delivery_status ?? "";
   const ls = r.letter_status ?? "pending";
   return paid && ds === "delivered" && ls !== "sent" && ls !== "completed";
@@ -62,10 +131,13 @@ export function isArchiveCompletedRow(r: AdminDonationRow): boolean {
 }
 
 export function filterRowsByLogisticsTab(rows: AdminDonationRow[], tab: LogisticsDonationTabId): AdminDonationRow[] {
-  if (tab === "all") return rows;
-  if (tab === "today") return rows.filter(isTodayShipmentRow);
-  if (tab === "letters") return rows.filter(isLettersTabRow);
-  return rows.filter(isArchiveCompletedRow);
+  if (tab === "potential") return rows.filter(isPotentialCustomersTabRow);
+  const paidOnly = excludeUnpaidDonations(rows);
+  if (tab === "orders") return paidOnly;
+  if (tab === "today") return paidOnly.filter(isTodayShipmentRow);
+  if (tab === "letters") return paidOnly.filter(isLettersTabRow);
+  if (tab === "archive") return paidOnly.filter(isArchiveCompletedRow);
+  return paidOnly;
 }
 
 export function applyDonationMultiFilters(rows: AdminDonationRow[], f: DonationMultiFilterState): AdminDonationRow[] {

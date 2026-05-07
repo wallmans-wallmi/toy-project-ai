@@ -12,7 +12,7 @@ export function ClaudeMobileCta() {
 
   return (
     <div className="mobile-cta-bar">
-      <Link href="/pickup">📦 תיאום איסוף</Link>
+      <Link href="/pickup">📦 התחילו עכשיו</Link>
     </div>
   );
 }
